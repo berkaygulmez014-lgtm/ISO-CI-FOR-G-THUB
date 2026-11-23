@@ -1,0 +1,11 @@
+NAME="Parametral OS"
+PRETTY_NAME="Parametral OS (live)"
+ID=parametral
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;224;169;59"
+HOME_URL="https://github.com/"
+DOCUMENTATION_URL="https://github.com/"
+SUPPORT_URL="https://github.com/"
+BUG_REPORT_URL="https://github.com/"
+LOGO=parametral-logo

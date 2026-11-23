@@ -1,0 +1,75 @@
+name: iso
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release etiketi (boşsa sadece artifact)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disk boşalt (runner'da ~14 GB boş kalıyor)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+          sudo docker image prune -af 2>/dev/null || true
+          df -h /
+
+      - name: ISO üret (archiso, container)
+        run: |
+          set -euo pipefail
+          # releng'in önyükleme yapılandırmalarını ödünç al (syslinux/efiboot/grub/pacman.conf)
+          docker run --rm --privileged -v "$PWD":/build -w /build archlinux:latest bash -c '
+            set -euo pipefail
+            pacman -Syu --noconfirm --needed archiso
+            cp -r /usr/share/archiso/configs/releng/syslinux  iso/
+            cp -r /usr/share/archiso/configs/releng/efiboot  iso/
+            cp -r /usr/share/archiso/configs/releng/grub     iso/ 2>/dev/null || true
+            cp    /usr/share/archiso/configs/releng/pacman.conf iso/
+            sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/syslinux/*.cfg || true
+            sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/efiboot/loader/entries/*.conf || true
+            chmod +x iso/profiledef.sh iso/airootfs/root/customize_airootfs.sh
+            mkdir -p out
+            mkarchiso -v -w /tmp/work -o /build/out ./iso
+            ls -lh out/
+          '
+
+      - name: Özet
+        run: |
+          echo "### ISO" >> $GITHUB_STEP_SUMMARY
+          ls -lh out/*.iso >> $GITHUB_STEP_SUMMARY || true
+          du -sh out/*.iso >> $GITHUB_STEP_SUMMARY || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parametral-iso
+          path: out/*.iso
+          retention-days: 14
+
+      - name: Release'e yükle
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.iso
+          generate_release_notes: true
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: Parametral OS ${{ inputs.tag || github.ref_name }}
+          body: |
+            Parametral OS live ISO.
+
+            - kullanıcı: `parametral` / şifre: `parametral`
+            - UEFI + BIOS önyükleme
+            - Masaüstü: XFCE (Materia-dark, Papirus-Dark, Inter)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
