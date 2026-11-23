@@ -37,6 +37,10 @@ jobs:
             cp -r /usr/share/archiso/configs/releng/efiboot  iso/
             cp -r /usr/share/archiso/configs/releng/grub     iso/ 2>/dev/null || true
             cp    /usr/share/archiso/configs/releng/pacman.conf iso/
+            # KRİTİK: archiso/memdisk hook'ları olmadan switch_root patlar
+            install -d -m 755 iso/airootfs/etc
+            cp    /usr/share/archiso/configs/releng/airootfs/etc/mkinitcpio.conf iso/airootfs/etc/mkinitcpio.conf
+            grep -q archiso iso/airootfs/etc/mkinitcpio.conf || { echo "mkinitcpio.conf'ta archiso hook'u yok"; exit 1; }
             sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/syslinux/*.cfg || true
             sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/efiboot/loader/entries/*.conf || true
             chmod +x iso/profiledef.sh iso/airootfs/root/customize_airootfs.sh
