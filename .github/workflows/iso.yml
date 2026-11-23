@@ -38,16 +38,20 @@ jobs:
             cp -r /usr/share/archiso/configs/releng/grub     iso/ 2>/dev/null || true
             cp    /usr/share/archiso/configs/releng/pacman.conf iso/
             # KRİTİK: archiso/memdisk hook'ları olmadan switch_root patlar.
-            # Sürümden bağımsız: releng'in etc ağacını ÇAKIŞMASIZ kopyala (cp -n),
-            # bizim dosyalar (os-release, hostname, lightdm, skel) korunur.
+            # Önce yapıyı gör (sürümden sürüme değişiyor), sonra tolere ederek kopyala.
+            set +e
+            echo "=== archiso kökü ==="; find /usr/share/archiso -maxdepth 4 2>/dev/null | sort | head -80
             R=/usr/share/archiso/configs/releng/airootfs/etc
-            echo "=== releng etc ağacı ==="; find "$R" -maxdepth 3 | sort | head -60
             install -d -m 755 iso/airootfs/etc
-            cp -rn "$R/." iso/airootfs/etc/ 2>/dev/null || true
-            echo "=== birleşik sonuç ==="; find iso/airootfs/etc -maxdepth 2 | sort | head -40
-            if ! grep -rqs archiso iso/airootfs/etc/mkinitcpio.conf* 2>/dev/null; then
-              echo "UYARI: archiso hook görünmüyor — mkinitcpio paket varsayılanı kullanılacak"
+            if [ -d "$R" ]; then
+              cp -rn "$R/." iso/airootfs/etc/ 2>/dev/null
+              echo "=== releng etc kopyalandı ==="
+            else
+              echo "=== releng airootfs/etc YOK ==="
             fi
+            echo "=== sonuç etc ==="; find iso/airootfs/etc -maxdepth 2 2>/dev/null | sort | head -40
+            if grep -rqs archiso iso/airootfs/etc 2>/dev/null; then echo "archiso hook: VAR"; else echo "archiso hook: YOK"; fi
+            set -e
             sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/syslinux/*.cfg || true
             sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/efiboot/loader/entries/*.conf || true
             chmod +x iso/profiledef.sh iso/airootfs/root/customize_airootfs.sh
