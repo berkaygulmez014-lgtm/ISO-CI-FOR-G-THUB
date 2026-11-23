@@ -1,0 +1,21 @@
+name: inspect
+
+on:
+  workflow_dispatch:
+
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - name: archiso yapısı
+        run: |
+          docker run --rm archlinux:latest bash -c '
+            pacman -Sy --noconfirm --needed archiso findutils >/dev/null 2>&1
+            echo "=== archiso pkg sürümü"; pacman -Q archiso
+            echo "=== /usr/share/archiso ağacı"; find /usr/share/archiso -maxdepth 4 | sort | head -80
+            echo "=== mkinitcpio içeren dosyalar"; grep -rl archiso /usr/share/archiso 2>/dev/null | head -10
+            echo "=== releng/airootfs"; ls -la /usr/share/archiso/configs/releng/airootfs 2>&1
+            echo "=== releng/airootfs/etc"; ls -la /usr/share/archiso/configs/releng/airootfs/etc 2>&1
+            echo "=== mkinitcpio.conf (varsa)"; cat /usr/share/archiso/configs/releng/airootfs/etc/mkinitcpio.conf 2>&1 | head -30
+            echo "=== conf.d (varsa)"; cat /usr/share/archiso/configs/releng/airootfs/etc/mkinitcpio.conf.d/*.conf 2>&1 | head -30
+          '
