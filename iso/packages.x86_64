@@ -1,4 +1,6 @@
 base
+syslinux
+edk2-shell
 linux
 linux-firmware
 amd-ucode
