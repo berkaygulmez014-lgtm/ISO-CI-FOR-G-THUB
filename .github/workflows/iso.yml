@@ -26,39 +26,8 @@ jobs:
           sudo docker image prune -af 2>/dev/null || true
           df -h /
 
-      - name: ISO üret (archiso, container)
-        run: |
-          set -euo pipefail
-          # releng'in önyükleme yapılandırmalarını ödünç al (syslinux/efiboot/grub/pacman.conf)
-          docker run --rm --privileged -v "$PWD":/build -w /build archlinux:latest bash -c '
-            set -euo pipefail
-            pacman -Syu --noconfirm --needed archiso
-            cp -r /usr/share/archiso/configs/releng/syslinux  iso/
-            cp -r /usr/share/archiso/configs/releng/efiboot  iso/
-            cp -r /usr/share/archiso/configs/releng/grub     iso/ 2>/dev/null || true
-            cp    /usr/share/archiso/configs/releng/pacman.conf iso/
-            # KRİTİK: archiso/memdisk hook'ları olmadan switch_root patlar.
-            # Önce yapıyı gör (sürümden sürüme değişiyor), sonra tolere ederek kopyala.
-            set +e
-            echo "=== archiso kökü ==="; find /usr/share/archiso -maxdepth 4 2>/dev/null | sort | head -80
-            R=/usr/share/archiso/configs/releng/airootfs/etc
-            install -d -m 755 iso/airootfs/etc
-            if [ -d "$R" ]; then
-              cp -rn "$R/." iso/airootfs/etc/ 2>/dev/null
-              echo "=== releng etc kopyalandı ==="
-            else
-              echo "=== releng airootfs/etc YOK ==="
-            fi
-            echo "=== sonuç etc ==="; find iso/airootfs/etc -maxdepth 2 2>/dev/null | sort | head -40
-            if grep -rqs archiso iso/airootfs/etc 2>/dev/null; then echo "archiso hook: VAR"; else echo "archiso hook: YOK"; fi
-            set -e
-            sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/syslinux/*.cfg || true
-            sed -i "s/Arch Linux install medium/PARAMETRAL OS/" iso/efiboot/loader/entries/*.conf || true
-            chmod +x iso/profiledef.sh iso/airootfs/root/customize_airootfs.sh
-            mkdir -p out
-            mkarchiso -v -w /tmp/work -o /build/out ./iso
-            ls -lh out/
-          '
+      - name: ISO üret
+        run: bash scripts/ci-build.sh
 
       - name: Özet
         run: |
