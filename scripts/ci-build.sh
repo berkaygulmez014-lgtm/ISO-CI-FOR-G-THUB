@@ -36,17 +36,21 @@ mkarchiso -v -w /tmp/work -o /build/out /tmp/p
 
 # ISO acilabilmesi icin initramfs icinde archiso hook sart. Yoksa ISO hic boot etmez:
 # bu kontrol olmadan bozuk ISO yayinladik.
-IR="$(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null | head -1)"
-if [ -n "$IR" ]; then
+# DIKKAT: /tmp/work altinda IKI initramfs var — airootfs/boot/icindeki (pacstrapin standart
+# linux paketinin urettigi, archiso hooku YOK) ve iso/arch/boot/icindeki (mkarchiso nun
+# urettigi, ISOyu acan). Ilkini kontrol edersen yanlis negatif alirsin (v0.1.13 boyle dustu).
+# Bu yuzden bulunan TUM initramfsleri dene: en az biri archiso hooku tasimali.
+mapfile -t IRS < <(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null)
+[ "${#IRS[@]}" -gt 0 ] || { echo "HATA: initramfs bulunamadi" >&2; exit 1; }
+ok=0
+for IR in "${IRS[@]}"; do
   if lsinitcpio -l "$IR" 2>/dev/null | grep -qi archiso; then
-    echo "KONTROL OK: initramfs icinde archiso hook var"
-  else
-    echo "HATA: initramfs icinde archiso hook YOK — bu ISO acilmaz" >&2
-    exit 1
+    echo "KONTROL OK: archiso hook var -> $IR"
+    ok=1
+    break
   fi
-else
-  echo "UYARI: initramfs bulunamadi ($IR), kontrol atlandi"
-fi
+done
+[ "$ok" = 1 ] || { echo "HATA: hicbir initramfs icinde archiso hook yok — bu ISO acilmaz (denenen: ${IRS[*]})" >&2; exit 1; }
 
 # GitHub Release tek dosyada 2 GiB siniri koyuyor; ISO ~2,4 GB oldugu icin boluyoruz.
 cd /build/out
