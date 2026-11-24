@@ -101,8 +101,13 @@ if [ -r /sys/class/dmi/id/product_name ] && grep -qiE 'virtualbox|vmware|qemu|kv
 if [ -r /sys/class/dmi/id/sys_vendor ] && grep -qiE 'virtualbox|vmware|qemu|innotek' /sys/class/dmi/id/sys_vendor; then vm=1; fi
 if command -v lspci >/dev/null 2>&1 && lspci 2>/dev/null | grep -qiE 'VMware SVGA|VirtualBox|QXL|virtio.*(VGA|GPU)|Bochs'; then vm=1; fi
 [ "$vm" = 1 ] || exit 0
+# Yazılım GL: hipervizörde donanım GL yok, Mesa'nın llvmpipe'ı kullanılsın
+cat > /etc/environment <<ENV
+LIBGL_ALWAYS_SOFTWARE=1
+QT_QUICK_BACKEND=software
+ENV
 sess=""
-for cand in plasmax11 plasma; do
+for cand in parametral-x11 plasmax11 plasma; do
   if [ -f "/usr/share/xsessions/$cand.desktop" ] || [ -f "/usr/share/wayland-sessions/$cand.desktop" ]; then sess="$cand"; break; fi
 done
 [ -n "$sess" ] || exit 0
@@ -110,6 +115,11 @@ cat > /etc/sddm.conf.d/30-vm-session.conf <<CONF
 [Autologin]
 Session=$sess
 CONF
+# SDDM once state.conf [Last] Session'i kullanir; orada parametral (Hyprland) yaziyor.
+# VM'de o oturum acilmadigi icin greeter giris sonrasi geri donuyordu — burayi da duzelt.
+if [ -f /var/lib/sddm/state.conf ]; then
+  sed -i "s/^Session=.*/Session=$sess/" /var/lib/sddm/state.conf
+fi
 echo "parametral: VM algilandi, varsayilan oturum $sess"
 EOF
 chmod 0755 /usr/local/bin/parametral-vm-session
@@ -138,6 +148,49 @@ EOF
 chown sddm:sddm /var/lib/sddm/state.conf 2>/dev/null || true
 chmod 0640 /var/lib/sddm/state.conf
 
+# ---------------------------------------------------------------- 5c. X11 yedek oturum (VM)
+# Plasma 6.8 X11 oturumunu kaldırdı; Hyprland ve Plasma Wayland hipervizörde (VirtualBox
+# VMSVGA, 3D kapalı) DRM/KMS yüzünden açılmıyor ve SDDM'ye geri düşüyor. XFCE tabanlı bu
+# oturum X11 ile her VM'de açılır; palet ve duvar kağıdı aynı Parametral markası.
+cat > /usr/share/xsessions/parametral-x11.desktop <<'EOF'
+[Desktop Entry]
+Name=Parametral X11
+Comment=XFCE tabanli X11 oturumu — Wayland acilmazsa bunu secin
+Exec=startxfce4
+TryExec=startxfce4
+Type=Application
+DesktopNames=XFCE
+EOF
+chmod 0644 /usr/share/xsessions/parametral-x11.desktop
+install -d /etc/xdg/xfce4/xfconf/xfce-perchannel-xml
+cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-desktop" version="1.0">
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+      <property name="monitorVirtual-1" type="empty">
+        <property name="workspace0" type="empty">
+          <property name="last-image" type="string" value="/usr/share/backgrounds/parametral.png"/>
+          <property name="image-style" type="int" value="5"/>
+        </property>
+      </property>
+    </property>
+  </property>
+</channel>
+EOF
+cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="Adwaita-dark"/>
+    <property name="IconThemeName" type="string" value="Papirus-Dark"/>
+  </property>
+</channel>
+EOF
+# VM'de (X11) yazılım GL: /etc/environment yalnız VM algılanınca yazılır (parametral-vm-session);
+# gerçek donanımda yazılım GL'e düşürmek istemiyoruz.
+install -d /usr/share/xsessions
+
 # ---------------------------------------------------------------- 6. ev dizini sahipliği
 chown -R parametral:parametral /home/parametral 2>/dev/null || true
 
@@ -162,8 +215,8 @@ cat > /etc/motd <<'EOF'
   root      : parametral
   ağ        : nmcli device wifi list   /  nmtui
   oturum    : parametral-desktop default parametral|plasma
-  VM notu   : sanal makinede varsayılan oturum Plasma (X11) seçilir;
-              Hyprland istiyorsan SDDM'de "Parametral"i seç
+  VM notu   : sanal makinede varsayılan oturum "Parametral X11" (XFCE) seçilir;
+              Wayland oturumları (Parametral/Plasma) VM'de açılmayabilir
   kurulum   : henüz yok — bu ISO test içindir
 
 EOF

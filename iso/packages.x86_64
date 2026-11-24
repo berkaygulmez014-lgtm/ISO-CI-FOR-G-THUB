@@ -93,3 +93,22 @@ firefox
 
 # VM konuk eklentileri (VirtualBox'ta fare/ekran/paylasim; gercek donanimda zararsiz)
 virtualbox-guest-utils
+# X11 yedek oturum (VM TESTI): Plasma 6.8 X11'i birakti, Hyprland/Plasma Wayland ise
+# VirtualBox/VMware gibi hipervizorlerde DRM/KMS yuzunden cogu zaman acilmiyor.
+# Bu oturum her VM'de acilir; marka paleti ve duvar kagidi ayni.
+xfce4-session
+xfwm4
+xfdesktop
+xfce4-panel
+xfce4-settings
+xfce4-appfinder
+xfce4-power-manager
+xfce4-notifyd
+thunar
+xfce4-terminal
+mousepad
+garcon
+exo
+libxfce4ui
+xfconf
+tumbler
