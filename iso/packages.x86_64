@@ -31,31 +31,26 @@ curl
 zsh
 starship
 
-# masaüstü
-xfce4-session
-xfwm4
-xfce4-panel
-xfdesktop
-thunar
-xfce4-terminal
-xfce4-settings
-xfce4-notifyd
-xfce4-power-manager
-xfce4-whiskermenu-plugin
-xfce4-pulseaudio-plugin
-xfce4-clipman-plugin
-xfce4-screenshooter
-mousepad
-xarchiver
-lightdm
-lightdm-gtk-greeter
-lightdm-gtk-greeter-settings
+# acilis (splash) — arkadasin tasarimindaki plymouth temasi
+plymouth
 
-# görünüm
-materia-gtk-theme
-papirus-icon-theme
-adwaita-icon-theme
-gnome-themes-extra
+# masaustu: KDE Plasma + SDDM (arkadasin OS reposundaki kimlikle ayni)
+plasma-meta
+sddm
+konsole
+dolphin
+kate
+breeze-gtk
+kde-gtk-config
+plasma-nm
+plasma-pa
+powerdevil
+bluedevil
+xdg-desktop-portal-kde
+polkit-kde-agent
+qt6-wayland
+
+# gorunum
 inter-font
 ttf-ibm-plex
 ttf-dejavu

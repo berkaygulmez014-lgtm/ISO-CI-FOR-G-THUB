@@ -1,0 +1,96 @@
+{
+  "version": 2,
+  "_comment": "Projection of branding/tokens.json for Noctalia v5. Contrast measured with WCAG 2.1 relative luminance. Noctalia v2 has no text-only primary role, so light.primary carries primaryText (#8A5F14, 4.92:1) instead of the #B8862B fill (2.83:1); see docs/DESIGN.md, Sapma Kaydı. Terminal ANSI blue is data, not a UI role.",
+  "dark": {
+    "primary": "#E0A93B",
+    "on_primary": "#1A150A",
+    "secondary": "#9AA4B2",
+    "on_secondary": "#0B0F14",
+    "tertiary": "#7EAE68",
+    "on_tertiary": "#0B0F14",
+    "error": "#D66056",
+    "on_error": "#1A0B09",
+    "surface": "#0B0F14",
+    "on_surface": "#E9E4D8",
+    "surface_container": "#1A2029",
+    "on_surface_variant": "#9AA4B2",
+    "outline_variant": "#2A323C",
+    "shadow": "#000000",
+    "hover": "#222B36",
+    "on_hover": "#E9E4D8",
+    "terminal": {
+      "background": "#0B0F14",
+      "foreground": "#E9E4D8",
+      "cursor": "#E0A93B",
+      "cursor_text": "#1A150A",
+      "selection_bg": "#2A323C",
+      "selection_fg": "#E9E4D8",
+      "normal": {
+        "black": "#0B0F14",
+        "red": "#D66056",
+        "green": "#7EAE68",
+        "yellow": "#E0A93B",
+        "blue": "#6C9BC4",
+        "magenta": "#A98BC4",
+        "cyan": "#5FB3A1",
+        "white": "#C9C4BA"
+      },
+      "bright": {
+        "black": "#7C8592",
+        "red": "#E8897F",
+        "green": "#9BCB84",
+        "yellow": "#F0BE5B",
+        "blue": "#8DB8DB",
+        "magenta": "#C4A6DA",
+        "cyan": "#7FCDBC",
+        "white": "#F5F2EA"
+      }
+    }
+  },
+  "light": {
+    "primary": "#8A5F14",
+    "on_primary": "#1A150A",
+    "secondary": "#5C5852",
+    "on_secondary": "#F4EFE6",
+    "tertiary": "#4F7A3F",
+    "on_tertiary": "#FFFFFF",
+    "error": "#A2564A",
+    "on_error": "#FFFFFF",
+    "surface": "#F4EFE6",
+    "on_surface": "#1E2228",
+    "surface_container": "#EAE2D5",
+    "on_surface_variant": "#5C5852",
+    "outline_variant": "#CFC3AD",
+    "shadow": "#D8CDBB",
+    "hover": "#EFE2C8",
+    "on_hover": "#1E2228",
+    "terminal": {
+      "background": "#F4EFE6",
+      "foreground": "#1E2228",
+      "cursor": "#8A5F14",
+      "cursor_text": "#FFFFFF",
+      "selection_bg": "#EAE2D5",
+      "selection_fg": "#1E2228",
+      "normal": {
+        "black": "#1E2228",
+        "red": "#A2564A",
+        "green": "#4F7A3F",
+        "yellow": "#8A5F14",
+        "blue": "#3D6B93",
+        "magenta": "#7A5A93",
+        "cyan": "#2F7A6B",
+        "white": "#F4EFE6"
+      },
+      "bright": {
+        "black": "#5C5852",
+        "red": "#C06B5C",
+        "green": "#63944F",
+        "yellow": "#A5771F",
+        "blue": "#4F82AD",
+        "magenta": "#9472AD",
+        "cyan": "#3F9183",
+        "white": "#FBF8F1"
+      }
+    }
+  }
+}

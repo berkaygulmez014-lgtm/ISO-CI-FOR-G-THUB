@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Parametral onay istekleri
+Name[en]=Parametral approvals
+Comment=AI'ın izin isteklerini onayla veya reddet
+Comment[en]=Approve or reject the AI's permission requests
+Exec=/usr/local/bin/parametral-approvals
+Icon=parametral-start
+Terminal=false
+Categories=System;Security;
+Keywords=approval;permission;ai;parametral;
+StartupNotify=true
+X-KDE-StartupNotify=true

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Parametral
+Description=Soft cream splash with the Parametral mark
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/parametral
+ScriptFile=/usr/share/plymouth/themes/parametral/parametral.script

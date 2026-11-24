@@ -1,0 +1,61 @@
+#!/bin/sh
+# Pick the wallpaper that matches this screen, then start the shell.
+#
+# Why this exists: Noctalia draws the wallpaper with fill_mode = "crop", so a 2560x1440 file on a
+# 1280x800 screen is scaled by 0.556 — and the bar plate drawn into that file shrinks with it
+# (a 40 px plate becomes 22 px) while the real bar keeps its 40 px. The plate and the widgets were
+# on two different scales. Shipping one file per resolution and pointing the shell at the one that
+# matches the screen removes the scaling entirely.
+#
+# Called from branding/hypr/shell.lua at hyprland.start; execs noctalia at the end so the shell
+# only starts once the wallpaper file is in place.
+
+set -u
+
+DIR=/usr/share/wallpapers/Parametral/contents/images
+# /run/parametral is a 1777 tmpfiles directory: the image tree stays root-owned, and only the
+# per-session copy the shell reads is writable by the logged-in user.
+RUNDIR=/run/parametral
+CURRENT="$RUNDIR/wallpaper.png"
+mkdir -p "$RUNDIR" 2>/dev/null || true
+DEFAULT=2560x1440
+
+[ -d "$DIR" ] || exit 0
+
+size=""
+if command -v hyprctl >/dev/null 2>&1; then
+    # prefer the signature the session exported: /run/user/<uid>/hypr can hold several stale
+    # directories from earlier sessions and the wrong one makes hyprctl fail silently.
+    sig="${HYPRLAND_INSTANCE_SIGNATURE:-$(ls -t /run/user/"$(id -u)"/hypr 2>/dev/null | head -1)}"
+    if [ -n "$sig" ]; then
+        size=$(HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl -j monitors 2>/dev/null | python3 -c 'import json, sys
+try:
+    m = json.load(sys.stdin)[0]
+except Exception:
+    sys.exit(0)
+print("%dx%d" % (m["width"], m["height"]))' 2>/dev/null)
+    fi
+fi
+
+# a light variant for the light theme, a dark one otherwise
+mode=dark
+if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/noctalia/config.toml" ] &&
+   grep -qE '^\s*mode\s*=\s*"light"' "${XDG_CONFIG_HOME:-$HOME/.config}/noctalia/config.toml"; then
+    mode=light
+fi
+
+# dark assets carry no suffix, light ones do: 1280x800.png / 1280x800-light.png
+suffix=""
+[ "$mode" = light ] && suffix=-light
+
+src=""
+[ -n "$size" ] && [ -f "$DIR/$size$suffix.png" ] && src="$DIR/$size$suffix.png"
+[ -z "$src" ] && [ -f "$DIR/$DEFAULT$suffix.png" ] && src="$DIR/$DEFAULT$suffix.png"
+[ -z "$src" ] && src="$DIR/$DEFAULT.png"
+
+if [ -n "$src" ] && [ -f "$src" ]; then
+    rm -f "$CURRENT"
+    cp -f "$src" "$CURRENT" || true
+fi
+
+exec noctalia

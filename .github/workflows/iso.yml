@@ -54,6 +54,7 @@ jobs:
 
             - kullanıcı: `parametral` / şifre: `parametral`
             - UEFI + BIOS önyükleme
-            - Masaüstü: XFCE (Materia-dark, Papirus-Dark, Inter)
+            - Masaüstü: KDE Plasma 6 (Parametral görünümü: palet, duvar kağıdı, ikonlar, Konsole)
+            - Giriş ekranı: SDDM parametral teması · Açılış: plymouth parametral splash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

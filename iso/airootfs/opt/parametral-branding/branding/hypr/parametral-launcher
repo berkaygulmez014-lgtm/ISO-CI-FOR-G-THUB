@@ -1,0 +1,30 @@
+#!/bin/sh
+# Parametral launcher — first working version.
+#
+# The real one is our own QML surface; until it exists this picks whichever launcher is on the
+# box. It never fails silently: if none is installed it says so in a terminal instead of
+# looking like a dead keybind.
+set -u
+
+notify() {
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "Parametral OS" "Başlatıcı" "$1"
+    else
+        printf '%s\n' "$1" >&2
+    fi
+}
+
+# our own surface first: the launcher is part of the desktop, not a borrowed dmenu
+if [ -x /usr/bin/qs ] && [ -f /usr/share/parametral/shell/launcher.qml ]; then
+    exec qs -p /usr/share/parametral/shell/launcher.qml
+fi
+
+for candidate in "fuzzel --dmenu" "wofi --show drun" "rofi -show drun" "bemenu-run"; do
+    name=${candidate%% *}
+    if command -v "$name" >/dev/null 2>&1; then
+        exec $candidate
+    fi
+done
+
+notify "Uygulama başlatıcı kurulu değil (fuzzel / wofi / rofi). Parametral Shell ile gelecek."
+exit 1

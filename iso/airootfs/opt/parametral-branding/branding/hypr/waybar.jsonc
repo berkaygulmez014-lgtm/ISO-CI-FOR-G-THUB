@@ -1,0 +1,61 @@
+{
+  "layer": "top",
+  "position": "bottom",
+  "height": 44,
+  "spacing": 8,
+  "margin-bottom": 8,
+  "margin-left": 12,
+  "margin-right": 12,
+
+  "modules-left": ["custom/launcher", "hyprland/workspaces", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "network", "pulseaudio", "battery"],
+
+  "custom/launcher": {
+    "format": "◉",
+    "tooltip": false,
+    "on-click": "/usr/local/bin/parametral-launcher"
+  },
+
+  "hyprland/workspaces": {
+    "format": "{id}",
+    "on-click": "activate",
+    "all-outputs": true
+  },
+
+  "hyprland/window": {
+    "format": "{}",
+    "max-length": 48,
+    "separate-outputs": true
+  },
+
+  "clock": {
+    "format": "{:%H:%M}",
+    "format-alt": "{:%d %B, %A}",
+    "tooltip-format": "{:%d %B %Y}"
+  },
+
+  "tray": {
+    "icon-size": 18,
+    "spacing": 8
+  },
+
+  "network": {
+    "format-wifi": "  {essid}",
+    "format-ethernet": "  {ifname}",
+    "format-disconnected": "  kapalı",
+    "tooltip-format": "{ipaddr}/{cidr}"
+  },
+
+  "pulseaudio": {
+    "format": "  {volume}%",
+    "format-muted": "  sessiz",
+    "on-click": "pavucontrol"
+  },
+
+  "battery": {
+    "format": "  {capacity}%",
+    "format-charging": "  {capacity}%",
+    "states": {"warning": 20, "critical": 10}
+  }
+}

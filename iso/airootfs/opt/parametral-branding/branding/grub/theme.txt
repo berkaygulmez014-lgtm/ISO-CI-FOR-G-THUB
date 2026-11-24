@@ -1,0 +1,68 @@
+# Parametral GRUB theme.
+#
+# GRUB is the first thing anyone sees, and stock GRUB is a black box with white text. Keep it
+# legible first: our wallpaper as the ground, amber on the selected entry, muted grey for the
+# rest. Fonts come from GRUB's own unicode.pf2 so this works without shipping a font file.
+
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#0B0F14"
+
+terminal-font: "Unifont Regular 16"
+terminal-box: "terminal_box_*.png"
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+
++ boot_menu {
+    left = 22%
+    top = 34%
+    width = 56%
+    height = 46%
+
+    item_font = "Unifont Regular 16"
+    item_color = "#9AA4B2"
+    selected_item_color = "#E0A93B"
+    item_height = 34
+    item_padding = 10
+    item_spacing = 4
+
+    icon_width = 0
+    icon_height = 0
+    item_icon_space = 0
+    layout = "icon_left"
+}
+
++ label {
+    top = 18%
+    left = 0
+    width = 100%
+    align = "center"
+    text = "Parametral OS"
+    font = "Unifont Regular 24"
+    color = "#E9E4D8"
+}
+
++ label {
+    top = 83%
+    left = 0
+    width = 100%
+    align = "center"
+    text = "\u2191\u2193 seç   \u21B5 aç   e düzenle   c komut satırı"
+    font = "Unifont Regular 14"
+    color = "#6B7280"
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 22%
+    top = 90%
+    width = 56%
+    height = 3
+    font = "Unifont Regular 12"
+    text_color = "#E0A93B"
+    fg_color = "#E0A93B"
+    bg_color = "#1A2029"
+    border_color = "#1A2029"
+}

@@ -1,0 +1,147 @@
+# Parametral OS — Noctalia shell configuration.
+#
+# Noctalia is the shell (MIT, noctalia.dev). The palette, the wallpaper, the launcher mark and
+# the first-party apps are ours; everything between them is theirs and stays upgradable.
+#
+# Installed as $XDG_CONFIG_HOME/noctalia/config.toml (see install/80-noctalia.sh).
+#
+# The bar is one plate, 40 px, and it never scales. Its surface is NOT drawn by the shell:
+# scripts/make_wallpaper.py draws the plate and the 2 px ruler along its bottom edge at the
+# exact geometry below, and the bar runs transparent so the widgets sit on that plate. See
+# the deviation table in docs/DESIGN.md.
+
+[theme]
+source          = "custom"
+custom_palette  = "Parametral"
+mode            = "dark"
+shell_mode      = "follow"
+sync_color_scheme = true
+
+[shell]
+# our own polkit window is experimental and not autostarted; Noctalia's agent is the one
+# that answers pkexec in this session
+polkit_agent = true
+panel = { polkit_placement = "floating", polkit_position = "center" }
+
+[wallpaper]
+enabled     = true
+fill_mode   = "crop"
+transition  = ["fade"]
+directory   = "/usr/share/wallpapers/Parametral/contents/images"
+
+# current.png is written by /usr/local/bin/parametral-wallpaper for this screen's resolution:
+# the plate drawn into the wallpaper only lines up with the bar when nothing scales it.
+[wallpaper.default]
+path = "/run/parametral/wallpaper.png"
+
+[lockscreen]
+enabled            = true
+lock_before_suspend = true
+blurred_desktop    = false
+blur_intensity     = 0.55
+tint_intensity     = 0.35
+tint_color         = "surface"
+transition         = ["fade"]
+
+# ---- bar -------------------------------------------------------------------
+# geometry: thickness 40, edge gap 6, side inset 8, padding 10, cluster gap 6, radius 12.
+# These numbers are duplicated in scripts/make_wallpaper.py (bar_geometry) — change both, or
+# the plate and the content drift apart.
+[bar.default]
+position           = "top"
+enabled            = true
+thickness          = 40
+background_opacity = 0.0        # the plate is drawn in the wallpaper
+compositor_blur    = false
+border_width       = 0
+shadow             = false
+radius             = 12
+margin_edge        = 6
+margin_ends        = 8
+padding            = 10
+widget_spacing     = 6
+scale              = 1.0         # a 40 px plate stays 40 px at 2560x1440
+font_scale         = 1.0
+font_weight        = 500
+font_family        = "Inter"
+hover_highlight    = false       # hover is an opacity change, not a tint
+
+start  = ["parametral-launcher", "workspaces"]
+center = ["clock", "clockdate"]
+end    = ["tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center", "session"]
+
+# ---- widgets ---------------------------------------------------------------
+# the launcher button is a custom button so the mark is ours, not Noctalia's logo
+[widget.parametral-launcher]
+type = "custom_button"
+custom_image = "/usr/share/icons/hicolor/scalable/apps/parametral-start.svg"
+custom_image_colorize = false
+tooltip = "Başlat"
+
+[widget.parametral-launcher.actions]
+left = "exec noctalia msg panel-toggle launcher"
+
+# Workspaces are the ruler's ticks: unlabelled, 2 px thick, 6 px long, the active one 14 px
+# in amber. No pills, no numbers, no blue — secondary in this palette is not a live signal.
+[widget.workspaces]
+type                 = "workspaces"
+style                = "regular"
+show_labels          = false
+show_icons           = false
+pill_scale           = 0.06
+inactive_pill_size   = 2.7
+active_pill_size     = 7.0
+capsule_radius       = 1.0
+focused_color        = "primary"
+# inactive ticks have to read as marks, not as a dark seam: muted is 7.3:1 on surface,
+# outline_variant was 1.4:1 and the ticks disappeared at 1280.
+occupied_color       = "on_surface_variant"
+empty_color          = "on_surface_variant"
+urgent_color         = "error"
+change_color_on_hover = false
+separator            = ""
+
+# Two clocks, one line: the time carries the weight, the date is meta. One date format
+# everywhere in the product: 20 Kasım 2026 Cuma.
+[widget.clock]
+type       = "clock"
+format     = "{:%H:%M}"
+font_scale = 0.92
+
+[widget.clockdate]
+type       = "clock"
+format     = "{:%d %B %Y %A}"
+font_scale = 0.34
+
+[widget.volume]
+type       = "volume"
+show_glyph = true
+show_label = true
+
+[widget.battery]
+type = "battery"
+
+[widget.network]
+type = "network"
+# the interface name ("enp0s3") is 90px of noise in a 1280px bar and made the centre clock
+# collide with the status cluster
+show_label = false
+
+[widget.bluetooth]
+type = "bluetooth"
+
+[widget.notifications]
+type = "notifications"
+
+[widget.control-center]
+type = "control-center"
+
+[widget.session]
+type = "session"
+
+[widget.tray]
+type = "tray"
+
+[widget.media]
+type = "media"
+hide_when_no_media = true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Parametral AI
+Comment=AI asistanı: durum, onay istekleri, işlem kayıtları, model bağlantısı
+Comment[en]=The AI assistant: status, approvals, activity log, model endpoint
+Exec=/usr/local/bin/parametral-ai
+Icon=parametral-start
+Terminal=false
+Categories=System;Utility;
+Keywords=ai;assistant;parametral;approval;
+StartupNotify=true

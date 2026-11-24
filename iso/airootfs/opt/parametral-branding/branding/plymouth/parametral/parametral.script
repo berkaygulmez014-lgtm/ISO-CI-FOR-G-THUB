@@ -1,0 +1,53 @@
+# Parametral boot splash — soft cream, breathing mark, three dots.
+# Deliberately quiet: no progress bar, no log text. Plymouth's default spinner is
+# replaced by an opacity pulse so a slow boot still looks calm.
+
+Window.SetBackgroundTopColor(0.980, 0.965, 0.937);
+Window.SetBackgroundBottomColor(0.918, 0.875, 0.804);
+
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX((screen_width - logo.image.GetWidth()) / 2);
+logo.sprite.SetY((screen_height - logo.image.GetHeight()) / 2 - 48);
+
+# three dots under the mark
+dot_image = Image("dot.png");
+dot_y = (screen_height / 2) + 150;
+dot_gap = 46;
+
+dot_a = Sprite(dot_image); dot_a.SetX(screen_width / 2 - dot_gap - dot_image.GetWidth() / 2); dot_a.SetY(dot_y);
+dot_b = Sprite(dot_image); dot_b.SetX(screen_width / 2 - dot_image.GetWidth() / 2);               dot_b.SetY(dot_y);
+dot_c = Sprite(dot_image); dot_c.SetX(screen_width / 2 + dot_gap - dot_image.GetWidth() / 2);      dot_c.SetY(dot_y);
+
+frame = 0;
+total_frames = 160;   # ~8 s at 20 fps
+
+refresh = function () {
+  frame = (frame + 1) % total_frames;
+
+  # breathing: full opacity at the start and end of the cycle
+  phase = Math.Sin(frame * 2 * Math.PI / total_frames);
+  logo.sprite.SetOpacity(0.86 + 0.14 * phase);
+
+  # dots light up in sequence, one third of the cycle apart
+  base = frame / total_frames;
+  dot_a.SetOpacity(0.25 + 0.75 * Math.Max(0, Math.Sin((base) * 2 * Math.PI)));
+  dot_b.SetOpacity(0.25 + 0.75 * Math.Max(0, Math.Sin((base + 0.33) * 2 * Math.PI)));
+  dot_c.SetOpacity(0.25 + 0.75 * Math.Max(0, Math.Sin((base + 0.66) * 2 * Math.PI)));
+};
+
+Plymouth.SetRefreshFunction(refresh);
+
+# a failed boot should not keep pulsing: freeze the animation and dim the mark
+on_failure = function () {
+  logo.sprite.SetOpacity(0.45);
+  dot_a.SetOpacity(0.15);
+  dot_b.SetOpacity(0.15);
+  dot_c.SetOpacity(0.15);
+};
+
+Plymouth.SetDisplayPasswordFunction(function () {});
+Plymouth.SetMessageFunction(function (text) {});

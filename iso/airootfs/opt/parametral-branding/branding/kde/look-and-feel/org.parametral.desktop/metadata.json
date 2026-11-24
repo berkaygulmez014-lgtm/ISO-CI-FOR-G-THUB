@@ -1,0 +1,14 @@
+{
+  "KPlugin": {
+    "Authors": [
+      { "Name": "Parametral OS" }
+    ],
+    "Description": "Parametral OS — grafit zemin, amber vurgu, yumuşak köşeler",
+    "Id": "org.parametral.desktop",
+    "License": "MIT",
+    "Name": "Parametral",
+    "Version": "1.0"
+  },
+  "X-Plasma-APIVersion": "2",
+  "X-KDE-PluginInfo-Name": "org.parametral.desktop"
+}

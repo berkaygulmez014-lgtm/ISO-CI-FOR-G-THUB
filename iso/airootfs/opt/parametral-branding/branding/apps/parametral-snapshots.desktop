@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Parametral snapshot
+Comment=Sistemi bir ana geri döndür / snapshot al
+Comment[en]=Take a snapshot or roll the system back
+Exec=/usr/local/bin/parametral-snapshots
+Icon=parametral-start
+Terminal=false
+Categories=System;
+Keywords=snapshot;rollback;btrfs;parametral;
