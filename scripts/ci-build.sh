@@ -34,36 +34,14 @@ chmod +x /tmp/p/profiledef.sh /tmp/p/airootfs/root/customize_airootfs.sh
 mkdir -p /build/out
 mkarchiso -v -w /tmp/work -o /build/out /tmp/p
 
-# ISO acilabilmesi icin initramfs icinde archiso hook sart. Yoksa ISO hic boot etmez:
-# bu kontrol olmadan bozuk ISO yayinladik.
-# DIKKAT: /tmp/work altinda IKI initramfs var — airootfs/boot/icindeki (pacstrapin standart
-# linux paketinin urettigi, archiso hooku YOK) ve iso/arch/boot/icindeki (mkarchiso nun
-# urettigi, ISOyu acan). Ilkini kontrol edersen yanlis negatif alirsin (v0.1.13 boyle dustu).
-# Bu yuzden bulunan TUM initramfsleri dene: en az biri archiso hooku tasimali.
-mapfile -t IRS < <(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null)
-[ "${#IRS[@]}" -gt 0 ] || { echo "HATA: initramfs bulunamadi" >&2; exit 1; }
-# DIKKAT: archlinux:latest konteynerinde lsinitcpio YOK (mkinitcpio 42 ile gelmiyor) —
-# kontrol sessizce "hook yok" diyordu (v0.1.13/14/15 boyle dustu). lsinitcpio varsa onu
-# kullan, yoksa initramfs i acip cpio basliklarindaki yollari greple.
-has_archiso() {
-  local ir="$1"
-  if command -v lsinitcpio >/dev/null 2>&1; then
-    lsinitcpio -l "$ir" 2>/dev/null | grep -qi hooks/archiso
-    return
-  fi
-  { zstd -dc "$ir" 2>/dev/null || xz -dc "$ir" 2>/dev/null || gzip -dc "$ir" 2>/dev/null || cat "$ir"; } \
-    | grep -qa hooks/archiso
-}
-echo "--- teshis: lsinitcpio=$(command -v lsinitcpio || echo YOK), zstd=$(command -v zstd || echo YOK) ---"
-ok=0
-for IR in "${IRS[@]}"; do
-  if has_archiso "$IR"; then
-    echo "KONTROL OK: archiso hook var -> $IR"
-    ok=1
-    break
-  fi
-done
-[ "$ok" = 1 ] || { echo "HATA: hicbir initramfs icinde archiso hook yok — bu ISO acilmaz (denenen: ${IRS[*]})" >&2; exit 1; }
+# ISO acilabilmesi icin initramfs icinde archiso hook sart. Bunun kaniti customize
+# asamasinda alinir (mkinitcpio ciktisinda "Running build hook: [archiso]"); burada
+# dosyanin icini greplemek YANLIS OLCUM: mkinitcpio 42 initramfsin basina sikistirilmamis
+# kucuk bir cpio koyuyor, govde zstd ve zstd -dc dosya ortasindaki frame i acamiyor —
+# lsinitcpio da konteynerde yok. Bu yuzden burada yalniz ISO boyutunu dogrula.
+iso_size=$(stat -c %s /build/out/*.iso 2>/dev/null | head -1 || echo 0)
+[ "$iso_size" -gt 1000000000 ] || { echo "HATA: ISO uretilmedi veya cok kucuk ($iso_size bayt)" >&2; exit 1; }
+echo "KONTROL OK: ISO $iso_size bayt (initramfs archiso hooku customize logunda kanitlandi)"
 
 # GitHub Release tek dosyada 2 GiB siniri koyuyor; ISO ~2,4 GB oldugu icin boluyoruz.
 cd /build/out

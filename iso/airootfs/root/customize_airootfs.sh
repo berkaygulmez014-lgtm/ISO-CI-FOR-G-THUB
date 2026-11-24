@@ -21,7 +21,15 @@ cp -r "$SRC/branding/plymouth/parametral/." /usr/share/plymouth/themes/parametra
 plymouth-set-default-theme parametral || echo "UYARI: plymouth-set-default-theme basarisiz"
 # initramfs'i burada üretiyoruz: mkinitcpio-archiso paket listesinde olduğu için artık
 # archiso hook'lari chroot'ta VAR; splash bu sayede initramfs'e giriyor.
-mkinitcpio -P || echo "UYARI: mkinitcpio basarisiz"
+# KANIT: mkinitcpio ciktisinda "Running build hook: [archiso]" gorunmeli. Initramfs dosyasinin
+# icini sonradan grep'lemek guvenilir DEGIL — mkinitcpio 42 dosyanin basina sikistirilmamis
+# kucuk bir cpio koyuyor, govde zstd; zstd -dc dosya ortasindaki frame'i acamaz (v0.1.13-17
+# bu yuzden gereksiz yere dustu).
+if ! mkinitcpio -P 2>&1 | tee /tmp/mkinitcpio.log; then
+  echo "HATA: mkinitcpio basarisiz" >&2; exit 1
+fi
+grep -q "Running build hook: \[archiso\]" /tmp/mkinitcpio.log || { echo "HATA: archiso hook calismadi — bu ISO acilmaz" >&2; exit 1; }
+grep -q "Initcpio image generation successful" /tmp/mkinitcpio.log || { echo "HATA: initramfs uretilmedi" >&2; exit 1; }
 
 # ---------------------------------------------------------------- 2. SDDM (giriş ekranı)
 echo "==> sddm teması (install/65-branding.sh ile aynı)"
