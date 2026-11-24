@@ -27,12 +27,20 @@ mkinitcpio -P || echo "UYARI: mkinitcpio basarisiz"
 echo "==> sddm teması (install/65-branding.sh ile aynı)"
 install -d /usr/share/sddm/themes/parametral
 cp -r "$SRC/branding/sddm/parametral/." /usr/share/sddm/themes/parametral/
+# SDDM 0.21 Qt6: metadata.desktop yoksa veya QtVersion=6 değilse greeter Qt5 ile açılmaya
+# çalışıyor, Qt5 kurulu olmadığı için GİRİŞ EKRANI HİÇ GELMİYOR (siyah ekran). v0.1.11'de
+# metadata.desktop yoktu — VM'de görülen siyah ekranın sebebi bu.
+[ -f /usr/share/sddm/themes/parametral/metadata.desktop ] || { echo "HATA: sddm metadata.desktop yok" >&2; exit 1; }
+grep -q '^QtVersion=6' /usr/share/sddm/themes/parametral/metadata.desktop || { echo "HATA: metadata QtVersion=6 degil" >&2; exit 1; }
+grep -q '^MainScript=Main.qml' /usr/share/sddm/themes/parametral/metadata.desktop || { echo "HATA: metadata MainScript yok" >&2; exit 1; }
 install -d /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/10-parametral.conf <<'EOF'
 [Theme]
 Current=parametral
 
 [General]
+# Greeter'ı X11'de tut: Wayland greeter'ı VM'lerde (VirtualBox/VMSVGA) siyah ekran veriyor.
+DisplayServer=x11
 Numlock=on
 HaltCommand=/usr/bin/systemctl poweroff
 RebootCommand=/usr/bin/systemctl reboot
@@ -71,6 +79,57 @@ bash "$SRC/install/74-desktop.sh"
 echo "==> install/45-apps.sh (tarayıcı, konsole, dolphin, gwenview, okular, ark, spectacle)"
 bash "$SRC/install/45-apps.sh" || echo "UYARI: 45-apps.sh basarisiz — temel uygulamalar eksik olabilir"
 
+# ---------------------------------------------------------------- 5b. SDDM oturum varsayılanı
+# 74-desktop.sh oturumu "parametral" yazıyor. VM'de Hyprland (aquamarine) siyah ekran
+# verebildiği için VM tespit edilirse varsayılanı Plasma (X11) yap: greeter açılır açılmaz
+# girilebilen bir oturum olsun. Gerçek donanımda davranış değişmez.
+install -d /etc/sddm.conf.d /var/lib/sddm
+cat > /usr/local/bin/parametral-vm-session <<'EOF'
+#!/usr/bin/env bash
+# Varsayılan SDDM oturumu: VM ise plasmax11 (X11), değilse dokunma.
+set -u
+vm=0
+if [ -r /sys/class/dmi/id/product_name ] && grep -qiE 'virtualbox|vmware|qemu|kvm|innotek' /sys/class/dmi/id/product_name; then vm=1; fi
+if [ -r /sys/class/dmi/id/sys_vendor ] && grep -qiE 'virtualbox|vmware|qemu|innotek' /sys/class/dmi/id/sys_vendor; then vm=1; fi
+if command -v lspci >/dev/null 2>&1 && lspci 2>/dev/null | grep -qiE 'VMware SVGA|VirtualBox|QXL|virtio.*(VGA|GPU)|Bochs'; then vm=1; fi
+[ "$vm" = 1 ] || exit 0
+sess=""
+for cand in plasmax11 plasma; do
+  if [ -f "/usr/share/xsessions/$cand.desktop" ] || [ -f "/usr/share/wayland-sessions/$cand.desktop" ]; then sess="$cand"; break; fi
+done
+[ -n "$sess" ] || exit 0
+cat > /etc/sddm.conf.d/30-vm-session.conf <<CONF
+[Autologin]
+Session=$sess
+CONF
+echo "parametral: VM algilandi, varsayilan oturum $sess"
+EOF
+chmod 0755 /usr/local/bin/parametral-vm-session
+cat > /etc/systemd/system/parametral-vm-session.service <<'EOF'
+[Unit]
+Description=Parametral: VM icin varsayilan SDDM oturumu (Plasma X11)
+Before=sddm.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/parametral-vm-session
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable parametral-vm-session.service
+
+# SDDM son kullanıcı/oturum: greeter kullanıcı alanını "parametral" ile doldursun
+cat > /var/lib/sddm/state.conf <<'EOF'
+[Last]
+Session=parametral
+User=parametral
+EOF
+chown sddm:sddm /var/lib/sddm/state.conf 2>/dev/null || true
+chmod 0640 /var/lib/sddm/state.conf
+
 # ---------------------------------------------------------------- 6. ev dizini sahipliği
 chown -R parametral:parametral /home/parametral 2>/dev/null || true
 
@@ -95,6 +154,8 @@ cat > /etc/motd <<'EOF'
   root      : parametral
   ağ        : nmcli device wifi list   /  nmtui
   oturum    : parametral-desktop default parametral|plasma
+  VM notu   : sanal makinede varsayılan oturum Plasma (X11) seçilir;
+              Hyprland istiyorsan SDDM'de "Parametral"i seç
   kurulum   : henüz yok — bu ISO test içindir
 
 EOF

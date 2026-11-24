@@ -8,9 +8,10 @@
 //  * no graphical-effect imports: the halo is a PNG, the rest is plain QtQuick
 //  * every optional feature (user chips, caps-lock hint) degrades quietly instead of
 //    breaking the whole theme
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import SddmComponents 2.0
+//  * unversioned Qt6 imports: SDDM 0.21 runs sddm-greeter-qt6, and a versioned/py-qt5 import
+//    aborts the greeter -> black screen with no cursor (seen in a VirtualBox run of 0.1.11)
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: root
@@ -299,7 +300,7 @@ Rectangle {
                     width: 520 * root.u
                     height: 52 * root.u
                     placeholderText: "kullanıcı"
-                    text: userModel.lastUser.length > 0 ? userModel.lastUser : "operator"
+                    text: userModel.lastUser.length > 0 ? userModel.lastUser : "parametral"
                     leftPadding: 22 * root.u
                     verticalAlignment: TextInput.AlignVCenter
                     font.pixelSize: 18 * root.u

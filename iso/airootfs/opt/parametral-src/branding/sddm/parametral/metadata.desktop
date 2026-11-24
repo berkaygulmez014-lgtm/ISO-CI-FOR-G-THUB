@@ -1,0 +1,9 @@
+[SddmGreeterTheme]
+Name=Parametral
+Description=Parametral OS giris ekrani
+Author=Parametral
+Type=sddm-theme
+Version=1.0
+ConfigFile=theme.conf
+MainScript=Main.qml
+QtVersion=6

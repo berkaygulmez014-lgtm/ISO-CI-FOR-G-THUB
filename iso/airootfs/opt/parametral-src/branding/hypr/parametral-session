@@ -18,6 +18,10 @@ set -u
 if command -v lspci >/dev/null 2>&1 && lspci 2>/dev/null | grep -qiE 'VMware SVGA|VirtualBox|QXL|virtio.*(VGA|GPU)|Bochs'; then
     export LIBGL_ALWAYS_SOFTWARE=1
     export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+    # aquamarine picks its own renderer; on a VM it must be pixman (CPU), otherwise the
+    # DRM backend aborts before the first frame and the session ends on a black screen.
+    export WLR_RENDERER=pixman
+    export AQ_NO_ATOMIC=1
 fi
 
 # `--` in two places, for two different parsers: the first ends uwsm's own options so the rest

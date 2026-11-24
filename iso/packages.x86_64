@@ -90,3 +90,7 @@ bluez-utils
 
 # tarayıcı
 firefox
+
+# VM konuk eklentileri (VirtualBox'ta fare/ekran/paylasim; gercek donanimda zararsiz)
+virtualbox-guest-utils
+xf86-video-vmware
