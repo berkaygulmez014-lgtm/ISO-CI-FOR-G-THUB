@@ -5,6 +5,8 @@ linux
 linux-firmware
 mkinitcpio
 mkinitcpio-archiso
+mkinitcpio-nfs-utils
+nbd
 amd-ucode
 intel-ucode
 sudo
