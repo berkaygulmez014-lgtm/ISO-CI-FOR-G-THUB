@@ -54,7 +54,9 @@ jobs:
 
             - kullanıcı: `parametral` / şifre: `parametral`
             - UEFI + BIOS önyükleme
-            - Masaüstü: KDE Plasma 6 (Parametral görünümü: palet, duvar kağıdı, ikonlar, Konsole)
-            - Giriş ekranı: SDDM parametral teması · Açılış: plymouth parametral splash
+            - Masaüstü: KDE Plasma 6 + Hyprland/Noctalia (arkadaşın OS reposundaki kimlikle aynı)
+            - Giriş: SDDM parametral teması (oturum seçimi: Parametral = Hyprland, Plasma = KDE)
+            - Açılış: plymouth parametral splash
+            - Parametral oturumu VM'de yazılım GL'e otomatik düşer (parametral-session)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

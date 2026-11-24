@@ -50,6 +50,26 @@ xdg-desktop-portal-kde
 polkit-kde-agent
 qt6-wayland
 
+# Hyprland edisyonu (arkadasin asil Parametral oturumu) — Noctalia shell ile
+hyprland
+hyprlock
+hypridle
+uwsm
+noctalia
+fuzzel
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+wl-clipboard
+grim
+slurp
+qt6ct
+adw-gtk-theme
+papirus-icon-theme
+brightnessctl
+playerctl
+libnotify
+noto-fonts-emoji
+
 # gorunum
 inter-font
 ttf-ibm-plex
