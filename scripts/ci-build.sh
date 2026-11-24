@@ -36,8 +36,8 @@ mkarchiso -v -w /tmp/work -o /build/out /tmp/p
 
 # ISO acilabilmesi icin initramfs icinde archiso hook sart. Yoksa ISO hic boot etmez:
 # bu kontrol olmadan bozuk ISO yayinladik.
-IR=/tmp/work/x86_64/iso/arch/boot/x86_64/initramfs-linux.img
-if [ -f "$IR" ]; then
+IR="$(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null | head -1)"
+if [ -n "$IR" ]; then
   if lsinitcpio -l "$IR" 2>/dev/null | grep -qi archiso; then
     echo "KONTROL OK: initramfs icinde archiso hook var"
   else
