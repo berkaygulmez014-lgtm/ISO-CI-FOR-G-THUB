@@ -1,0 +1,334 @@
+{
+  "policy_version": 1,
+  "node_id": "local",
+  "default": "deny",
+  "limits": {
+    "max_token_ttl_s": 1800,
+    "default_token_ttl_s": 900,
+    "default_token_max_uses": 25,
+    "max_memory_mb": 4096,
+    "max_cpu_cores": 4.0,
+    "max_pids": 512,
+    "max_disk_mb": 4096,
+    "exec_timeout_s": 30,
+    "approval_ttl_s": 900
+  },
+  "rules": [
+    {
+      "id": "deny-unlisted-host-mounts",
+      "description": "Only operator-listed host paths may be bind-mounted; anything else is refused.",
+      "effect": "deny",
+      "priority": 9000,
+      "operations": [
+        "sandbox.create"
+      ],
+      "not_allowed_mounts": [
+        "/opt/models/**"
+      ]
+    },
+    {
+      "id": "deny-host-escape",
+      "description": "Nothing may touch host paths through the fs API, ever. Deny beats allow at any priority.",
+      "effect": "deny",
+      "priority": 10000,
+      "operations": [
+        "fs.read",
+        "fs.write",
+        "fs.edit",
+        "fs.delete",
+        "fs.list"
+      ],
+      "paths": [
+        "/etc/**",
+        "/root/**",
+        "/home/*",
+        "/proc/**",
+        "/sys/**",
+        "/dev/**",
+        "/boot/**",
+        "/var/**",
+        "/usr/**"
+      ]
+    },
+    {
+      "id": "deny-dangerous-commands",
+      "description": "Commands that can damage the sandbox or probe the host boundary are denied even with a token.",
+      "effect": "deny",
+      "priority": 9000,
+      "operations": [
+        "exec.run"
+      ],
+      "commands": [
+        "rm",
+        "dd",
+        "mkfs",
+        "shutdown",
+        "reboot",
+        "poweroff",
+        "mount",
+        "umount",
+        "insmod",
+        "modprobe",
+        "kexec",
+        "nc",
+        "ncat",
+        "socat",
+        "ssh",
+        "telnet",
+        "curl",
+        "wget"
+      ]
+    },
+    {
+      "id": "allow-node-status",
+      "description": "Read-only introspection, no side effects.",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "status"
+      ],
+      "max_ttl_s": 300
+    },
+    {
+      "id": "allow-sandbox-lifecycle",
+      "description": "The AI may create and destroy its own sandboxes; destroy is destructive but scoped by sandbox id.",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "sandbox.create",
+        "sandbox.destroy",
+        "sandbox.list",
+        "sandbox.status"
+      ],
+      "max_ttl_s": 900
+    },
+    {
+      "id": "allow-sandbox-exec",
+      "description": "Commands the AI may run inside its sandbox (Arch base: pacman/nix; tier-2 hard denies are enforced by the oracle before this rule).",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "exec.run"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "commands": [
+        "git",
+        "npm",
+        "pnpm",
+        "node",
+        "python3",
+        "pip",
+        "rg",
+        "grep",
+        "sed",
+        "awk",
+        "cat",
+        "ls",
+        "cp",
+        "mv",
+        "mkdir",
+        "tar",
+        "gzip",
+        "make",
+        "gcc",
+        "cc",
+        "sh",
+        "bash",
+        "uname",
+        "id",
+        "env",
+        "head",
+        "tail",
+        "wc",
+        "find",
+        "chmod",
+        "stat",
+        "which",
+        "true",
+        "false",
+        "sleep",
+        "echo",
+        "pacman",
+        "nix",
+        "nix-env",
+        "home-manager",
+        "makepkg"
+      ],
+      "max_ttl_s": 900
+    },
+    {
+      "id": "allow-sandbox-fs",
+      "description": "File access is limited to the sandbox root and its home.",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "fs.read",
+        "fs.write",
+        "fs.edit",
+        "fs.delete",
+        "fs.list"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "paths": [
+        "/work",
+        "/work/**",
+        "/home/user",
+        "/home/user/**"
+      ],
+      "max_ttl_s": 900
+    },
+    {
+      "id": "allow-approvals-decide",
+      "description": "Approval decisions are gated by the approver HMAC proof, not by a token.",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "approvals.decide"
+      ],
+      "max_ttl_s": 300
+    },
+    {
+      "id": "allow-app-install",
+      "description": "Installing software changes the sandbox; user must confirm, token is short-lived.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "app.install",
+        "app.remove"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "requires_approval": true,
+      "max_ttl_s": 1800
+    },
+    {
+      "id": "allow-app-verify",
+      "description": "Verification is read-only.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "app.read"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "max_ttl_s": 600
+    },
+    {
+      "id": "allow-audit-read",
+      "description": "The AI may read its own audit trail (transparency, not tamper).",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "audit.read",
+        "approvals.read"
+      ],
+      "max_ttl_s": 600
+    },
+    {
+      "id": "allow-snapshot-list",
+      "description": "Listing snapshots is read-only.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "snapshot.list"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "max_ttl_s": 600
+    },
+    {
+      "id": "allow-snapshot-create",
+      "description": "Snapshots are cheap and always safe.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "snapshot.create"
+      ],
+      "max_ttl_s": 600
+    },
+    {
+      "id": "allow-host-nix-profile",
+      "description": "Tier 0: rootless, generation-based nix/home-manager profile updates. Rollback is `nix-env --rollback`, so no approval gate.",
+      "effect": "allow",
+      "priority": 150,
+      "operations": [
+        "host.nix_profile"
+      ],
+      "max_ttl_s": 900
+    },
+    {
+      "id": "allow-nix-commands-in-sandbox",
+      "description": "Tier 0: nix/home-manager commands inside a sandbox (rootless, generation rollback); no approval needed.",
+      "effect": "allow",
+      "priority": 150,
+      "operations": [
+        "exec.run"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "commands": [
+        "nix",
+        "nix-env",
+        "nix-shell",
+        "home-manager"
+      ],
+      "max_ttl_s": 900
+    },
+    {
+      "id": "allow-host-apply",
+      "description": "Tier 1: real system writes (pacman -S, system services, /etc). Always approval + pre-change snapshot; never automatic.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "host.apply"
+      ],
+      "requires_approval": true,
+      "max_ttl_s": 1800
+    },
+    {
+      "id": "allow-snapshot-restore",
+      "description": "Rollback rewrites state: always a human decision.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "snapshot.restore"
+      ],
+      "requires_approval": true,
+      "max_ttl_s": 600
+    },
+    {
+      "id": "allow-net-grant-admin",
+      "description": "Listing and revoking network grants changes nothing on the host.",
+      "effect": "allow",
+      "priority": 100,
+      "operations": [
+        "net.list",
+        "net.close"
+      ],
+      "max_ttl_s": 300
+    },
+    {
+      "id": "allow-network-with-approval",
+      "description": "Opening the network is the single most dangerous capability: human gate, small TTL.",
+      "effect": "allow",
+      "priority": 200,
+      "operations": [
+        "net.open",
+        "service.start"
+      ],
+      "sandbox_ids": [
+        "*"
+      ],
+      "requires_approval": true,
+      "max_ttl_s": 600
+    }
+  ]
+}

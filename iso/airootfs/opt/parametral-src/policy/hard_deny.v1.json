@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "node_id": "local",
+  "description": "Tier-2 hard deny list. Deterministic, no approval can override it. Read-only + HMAC-signed: the AI cannot edit or re-sign this file. GC Shield is NOT consulted here; GC Shield lives inside the model and is probabilistic, this file is the hard floor.",
+  "rules": [
+    {
+      "id": "hd-disk-destroy",
+      "reason": "disk / filesystem destruction is never an AI operation",
+      "operations": ["exec.run"],
+      "commands": ["mkfs", "mkfs.*", "fdisk", "sfdisk", "parted", "wipefs", "dd", "mkswap", "swapon", "swapoff", "cryptsetup", "blkdiscard"]
+    },
+    {
+      "id": "hd-kernel",
+      "reason": "kernel modification is operator-only",
+      "operations": ["exec.run"],
+      "commands": ["modprobe", "insmod", "rmmod", "kexec", "sysctl"]
+    },
+    {
+      "id": "hd-bootloader",
+      "reason": "bootloader changes can brick the machine",
+      "operations": ["exec.run", "fs.write", "fs.edit", "fs.delete"],
+      "commands": ["grub-install", "grub-mkconfig", "bootctl", "efibootmgr", "nixos-rebuild", "sbctl"],
+      "paths": ["/boot/**", "/efi/**"]
+    },
+    {
+      "id": "hd-credentials",
+      "reason": "credential material is outside the AI's reach",
+      "operations": ["fs.read", "fs.write", "fs.edit", "fs.delete", "fs.list"],
+      "paths": ["/etc/shadow", "/etc/shadow-", "/etc/gshadow", "/etc/sudoers", "/etc/sudoers.d/**",
+                "/etc/pam.d/**", "/etc/ssh/ssh_host_*", "/root/**", "**/.ssh/id_*", "**/.gnupg/**"]
+    },
+    {
+      "id": "hd-power",
+      "reason": "power state changes need a human at the machine",
+      "operations": ["exec.run"],
+      "commands": ["poweroff", "reboot", "shutdown", "halt", "systemctl"]
+    },
+    {
+      "id": "hd-firewall",
+      "reason": "the host firewall is not an AI-managed resource",
+      "operations": ["exec.run", "net.open"],
+      "commands": ["iptables", "ip6tables", "nft", "ufw", "firewall-cmd"]
+    },
+    {
+      "id": "hd-sensitive-host-mounts",
+      "reason": "these host trees must never appear inside an AI sandbox",
+      "operations": ["sandbox.create"],
+      "host_paths": ["/boot/**", "/efi/**", "/etc/**", "/dev/**", "/proc/**", "/sys/**",
+                     "/var/lib/pacman/**", "/nix/store/**", "/root/**", "**/.ssh/**", "**/.gnupg/**"]
+    },
+    {
+      "id": "hd-policy-tamper",
+      "reason": "the deny list, policy and signing keys are operator-owned files",
+      "operations": ["fs.write", "fs.edit", "fs.delete"],
+      "paths": ["/etc/parametral/**", "/var/lib/parametral/**", "**/policy.v1.json",
+                "**/hard_deny.v1.json", "**/hard_deny.v1.json.sig", "**/operator.key"]
+    }
+  ]
+}

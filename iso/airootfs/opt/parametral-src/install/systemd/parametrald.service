@@ -1,0 +1,43 @@
+[Unit]
+Description=Parametral OS gateway (JSON-RPC v1 tool API)
+Documentation=file:///usr/share/doc/parametral/API-v1.md
+After=local-fs.target parametral-harddeny.service
+Wants=parametral-harddeny.service
+ConditionPathExists=/etc/parametral/policy/policy.v1.json
+
+[Service]
+Type=simple
+User=parametral
+Group=parametral
+RuntimeDirectory=parametral
+RuntimeDirectoryMode=0750
+# Both units declare RuntimeDirectory=parametral; without Preserve, stopping either one
+# deletes the directory and takes the other service's socket with it.
+RuntimeDirectoryPreserve=yes
+StateDirectory=parametral
+StateDirectoryMode=0700
+ExecStart=/usr/local/bin/parametrald \
+    --policy /etc/parametral/policy/policy.v1.json \
+    --state /var/lib/parametral \
+    --socket /run/parametral/control.sock \
+    --harddeny-socket /run/parametral/harddeny.sock
+Restart=on-failure
+RestartSec=2s
+# The gateway needs to create child cgroups for sandboxes, so cgroup protection is off
+# here (it stays on for the oracle). Everything else is locked down.
+ReadOnlyPaths=/etc/parametral /usr/local/bin
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=no
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+LockPersonality=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

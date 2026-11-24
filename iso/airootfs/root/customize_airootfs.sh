@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
-# ISO kapanmadan önce çalışır: marka (plymouth + SDDM + Plasma), kullanıcı, servisler.
-# Marka kaynağı: parametral-os reposunun branding/ + assets/ ağacı (ISO içine
-# /opt/parametral-branding olarak kopyalandı). Sıra, arkadaşın install/65-branding.sh
-# ve install/75-desktop.sh dosyalarındaki sırayla aynı tutuldu.
+# ISO kapanmadan önce çalışır.
+#
+# KURAL: marka elle kopyalanmaz. Arkadaşın parametral-os reposunun TAMAMI ISO içine
+# /opt/parametral-src olarak gömülür ve onun kendi kurulum betikleri burada çalıştırılır
+# (install/74-desktop.sh → desktop/kde.sh + desktop/hyprland.sh → 75-desktop.sh + 76-xdg-defaults.sh).
+# Böylece ISO'daki görünüm, o repodaki kurulumun birebir aynısı olur.
 set -euo pipefail
-SRC=/opt/parametral-branding
 
-# ---------------------------------------------------------------- plymouth (açılış)
-echo "==> plymouth teması"
+SRC=/opt/parametral-src
+export SRC
+export PARAMETRAL_DESKTOP=both          # arkadaşın "both" modu: iki oturum, birincil Parametral
+export PARAMETRAL_APPEARANCE=dark
+export PARAMETRAL_USER=parametral
+
+# ---------------------------------------------------------------- 1. plymouth (açılış)
+# install/65-branding.sh'in aynı komutları; tek fark /mnt yerine canlı kök.
+echo "==> plymouth (install/65-branding.sh ile aynı kaynaklar)"
 install -d /usr/share/plymouth/themes/parametral
 cp -r "$SRC/branding/plymouth/parametral/." /usr/share/plymouth/themes/parametral/
 plymouth-set-default-theme parametral || echo "UYARI: plymouth-set-default-theme basarisiz"
 mkinitcpio -P || echo "UYARI: mkinitcpio basarisiz — splash initramfs'e girmedi"
 
-# ---------------------------------------------------------------- SDDM (giriş ekranı)
-echo "==> SDDM teması"
+# ---------------------------------------------------------------- 2. SDDM (giriş ekranı)
+echo "==> sddm teması (install/65-branding.sh ile aynı)"
 install -d /usr/share/sddm/themes/parametral
 cp -r "$SRC/branding/sddm/parametral/." /usr/share/sddm/themes/parametral/
 install -d /etc/sddm.conf.d
@@ -28,209 +36,14 @@ HaltCommand=/usr/bin/systemctl poweroff
 RebootCommand=/usr/bin/systemctl reboot
 EOF
 
-# ---------------------------------------------------------------- duvar kağıtları
-echo "==> duvar kağıtları"
-install -d /usr/share/wallpapers/Parametral/contents/images
-for size in 2560x1440 2560x1440-light 1920x1080 1920x1080-light 1280x800 1280x800-light; do
-  install -m 0644 "$SRC/branding/wallpapers/$size.png" \
-    "/usr/share/wallpapers/Parametral/contents/images/$size.png"
-done
-cat > /usr/share/wallpapers/Parametral/metadata.json <<'EOF'
-{"KPlugin": {"Id": "Parametral", "Name": "Parametral"}, "X-KDE-PluginInfo-Name": "Parametral"}
-EOF
-if [ -f "$SRC/branding/hypr/parametral-wallpaper" ]; then
-  install -Dm 0755 "$SRC/branding/hypr/parametral-wallpaper" /usr/local/bin/parametral-wallpaper
-fi
+# ---------------------------------------------------------------- 3. dil
+sed -i 's/^#en_US.UTF-8/en_US.UTF-8/; s/^#tr_TR.UTF-8/tr_TR.UTF-8/' /etc/locale.gen
+grep -q '^tr_TR.UTF-8 UTF-8' /etc/locale.gen || echo 'tr_TR.UTF-8 UTF-8' >> /etc/locale.gen
+locale-gen
 
-# ---------------------------------------------------------------- renk şeması
-echo "==> renk şeması"
-install -d /usr/share/color-schemes
-install -m 0644 "$SRC/branding/kde/Parametral.colors" /usr/share/color-schemes/Parametral.colors
-install -m 0644 "$SRC/branding/kde/ParametralLight.colors" /usr/share/color-schemes/ParametralLight.colors
-
-# ---------------------------------------------------------------- imleç
-echo "==> imleç teması"
-if [ -d "$SRC/branding/cursors/Parametral" ]; then
-  rm -rf /usr/share/icons/Parametral
-  cp -r "$SRC/branding/cursors/Parametral" /usr/share/icons/Parametral
-fi
-
-# ---------------------------------------------------------------- uygulama ikonları
-echo "==> ikonlar"
-if [ -d "$SRC/branding/icons/apps" ]; then
-  for svg in "$SRC/branding/icons/apps"/*.svg; do
-    [ -f "$svg" ] || continue
-    name="$(basename "$svg")"
-    while IFS= read -r target; do
-      cp "$svg" "$target"
-    done < <(find /usr/share/icons/breeze /usr/share/icons/breeze-dark -name "$name" 2>/dev/null)
-  done
-fi
-install -Dm 0644 "$SRC/branding/icons/parametral-start.svg" \
-  /usr/share/icons/hicolor/scalable/apps/parametral-start.svg
-while IFS= read -r f; do
-  cp "$SRC/branding/icons/parametral-start.svg" "$f"
-done < <(find /usr/share/icons/breeze -name 'start-here-kde*.svg' 2>/dev/null)
-
-# ---------------------------------------------------------------- KDE global tema
-echo "==> KDE global tema"
-install -d /usr/share/plasma/look-and-feel
-rm -rf /usr/share/plasma/look-and-feel/org.parametral.desktop
-cp -r "$SRC/branding/kde/look-and-feel/org.parametral.desktop" \
-  /usr/share/plasma/look-and-feel/org.parametral.desktop
-
-# ---------------------------------------------------------------- Konsole
-echo "==> Konsole"
-install -d /usr/share/konsole
-install -m 0644 "$SRC/branding/kde/konsole/Parametral.colorscheme" /usr/share/konsole/
-install -m 0644 "$SRC/branding/kde/konsole/Parametral.profile" /usr/share/konsole/
-
-# ---------------------------------------------------------------- Hyprland (Parametral oturumu)
-echo "==> Hyprland oturumu (uwsm + Noctalia)"
-install -d /etc/parametral/hypr
-for module in variables environment monitors inputs appearance binds windowrules workspaces shell; do
-  install -m 0644 "$SRC/branding/hypr/$module.lua" "/etc/parametral/hypr/$module.lua"
-done
-install -m 0644 "$SRC/branding/hypr/parametral.lua" /etc/parametral/hypr/parametral.lua
-install -m 0644 "$SRC/branding/hypr/hyprlock.conf" /etc/parametral/hypr/hyprlock.conf
-cat > /etc/parametral/hypr/theme.lua <<'EOF'
--- GENERATED by ISO build — appearance: dark
--- Source of truth: branding/tokens.json (palette) in the OS repo.
-return {
-  appearance = "dark",
-  palette = {
-    graphite = "0b0f14ff",
-    surface  = "12171eff",
-    card     = "1a2029ff",
-    amber    = "e0a93bff",
-    edge     = "2a323cff",
-    text     = "e9e4d8ff",
-  },
-  wallpaper = "/usr/share/wallpapers/Parametral/contents/images/2560x1440.png",
-  gtk_theme = "adw-gtk3-dark",
-  icon_theme = "Papirus-Dark",
-}
-EOF
-chmod 0755 /etc/parametral /etc/parametral/hypr
-chmod 0644 /etc/parametral/hypr/*.lua /etc/parametral/hypr/hyprlock.conf
-
-install -m 0755 "$SRC/branding/hypr/parametral-session" /usr/local/bin/parametral-session
-install -m 0755 "$SRC/branding/hypr/parametral-launcher" /usr/local/bin/parametral-launcher
-printf 'd /run/parametral 1777 root root -\n' > /usr/lib/tmpfiles.d/parametral-wallpaper.conf
-
-install -d /usr/share/parametral/shell
-for f in shell.qml launcher.qml polkit.qml Theme.js; do
-  install -m 0644 "$SRC/shell/$f" "/usr/share/parametral/shell/$f"
-done
-
-install -d /usr/share/wayland-sessions
-cat > /usr/share/wayland-sessions/parametral.desktop <<'EOF'
-[Desktop Entry]
-Name=Parametral
-Comment=Hyprland ve Noctalia ile Parametral OS oturumu
-Exec=/usr/local/bin/parametral-session
-TryExec=/usr/local/bin/parametral-session
-Type=Application
-DesktopNames=Parametral
-Keywords=Hyprland;Wayland;Noctalia;Parametral;
-EOF
-chmod 0644 /usr/share/wayland-sessions/parametral.desktop
-
-# edisyon seçimi: ikisi de kurulu, birincil oturum Parametral (Hyprland)
-cat > /etc/parametral/desktop.conf <<'EOF'
-# Parametral OS — desktop edition selection (live ISO).
-PARAMETRAL_DESKTOP=both
-PARAMETRAL_APPEARANCE=dark
-PARAMETRAL_PRIMARY_SESSION=parametral
-PARAMETRAL_SESSIONS="plasma parametral"
-EOF
-chmod 0644 /etc/parametral/desktop.conf
-printf '[Autologin]\nSession=parametral\n' > /etc/sddm.conf.d/20-parametral-session.conf
-
-# ---------------------------------------------------------------- görünüme dön / ilk oturum
-echo "==> yardımcı betikler"
-install -Dm 0755 "$SRC/branding/kde/parametral-reset-look.sh" /usr/local/bin/parametral-reset-look
-install -d /usr/share/applications
-cat > /usr/share/applications/parametral-reset-look.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Parametral görünümüne dön
-Comment=Renkleri, simgeleri, imleci ve duvar kağıdını Parametral varsayılanına döndür
-Exec=/usr/local/bin/parametral-reset-look
-Icon=parametral-start
-Terminal=false
-Categories=Settings;
-EOF
-
-install -Dm 0755 "$SRC/branding/kde/parametral-first-login.sh" /usr/local/bin/parametral-first-login
-install -d /etc/xdg/autostart
-cat > /etc/xdg/autostart/parametral-first-login.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Parametral first login
-Exec=/usr/local/bin/parametral-first-login
-OnlyShowIn=KDE;
-NoDisplay=true
-X-KDE-autostart-after=panel
-EOF
-
-# ---------------------------------------------------------------- skel (canlı kullanıcının evi)
-echo "==> kullanıcı varsayılanları"
-SKEL=/etc/skel/.config
-install -d "$SKEL"
-
-cat > "$SKEL/kdeglobals" <<'EOF'
-[General]
-ColorScheme=Parametral
-LookAndFeelPackage=org.parametral.desktop
-
-[KDE]
-widgetStyle=Breeze
-SingleClick=false
-EOF
-if [ -f "$SRC/branding/kde/kdeglobals-snippet.ini" ]; then
-  cat "$SRC/branding/kde/kdeglobals-snippet.ini" >> "$SKEL/kdeglobals"
-fi
-
-printf '[Theme]\nname=breeze-dark\n' > "$SKEL/plasmarc"
-printf '[KSplash]\nTheme=org.parametral.desktop\n' > "$SKEL/ksplashrc"
-printf '[Daemon]\nAutolock=false\nAutolockTimeout=0\n' > "$SKEL/kscreenlockerrc"
-printf '[Desktop Entry]\nDefaultProfile=Parametral.profile\n' > "$SKEL/konsolerc"
-cat > "$SKEL/dolphinrc" <<'EOF'
-[DetailsMode]
-PreviewSize=32
-
-[MainWindow]
-MenuBar=Disabled
-
-[KDE]
-SingleClickOpens=false
-
-[CompactMode]
-FontSize=12
-
-[IconsMode]
-PreviewSize=48
-EOF
-install -d "$SKEL/gtk-3.0"
-cat > "$SKEL/gtk-3.0/settings.ini" <<'EOF'
-[Settings]
-gtk-theme-name=adw-gtk3-dark
-gtk-icon-theme-name=Papirus-Dark
-gtk-cursor-theme-name=Parametral
-gtk-font-name=Inter 10.5
-gtk-application-prefer-dark-theme=1
-EOF
-
-# Hyprland/Noctalia oturumunun paleti (arkadaşın install/desktop/hyprland.sh ile aynı yol)
-if [ -f "$SRC/branding/noctalia/config.toml" ]; then
-  install -d "$SKEL/noctalia/palettes"
-  install -m 0644 "$SRC/branding/noctalia/config.toml" "$SKEL/noctalia/config.toml"
-  install -m 0644 "$SRC/branding/noctalia/palettes/Parametral.json" \
-    "$SKEL/noctalia/palettes/Parametral.json"
-fi
-
-# ---------------------------------------------------------------- canlı kullanıcı
+# ---------------------------------------------------------------- 4. canlı kullanıcı
+# ÖNEMLİ: 75-desktop.sh ve hyprland.sh /home/* üzerinde döner. Kullanıcı onlardan önce
+# oluşturulmazsa marka hiçbir eve yazılmaz.
 echo "==> canlı kullanıcı"
 useradd -m -g users -G wheel,audio,video,optical,storage,input -s /bin/bash parametral
 echo 'parametral:parametral' | chpasswd
@@ -238,35 +51,31 @@ echo 'root:parametral' | chpasswd
 echo 'parametral ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/10-parametral
 chmod 440 /etc/sudoers.d/10-parametral
 
-# ---------------------------------------------------------------- servisler
-echo "==> servisler"
 systemctl enable NetworkManager.service
-systemctl enable sddm.service
-systemctl disable lightdm.service 2>/dev/null || true
 systemctl enable bluetooth.service || true
 
-# ---------------------------------------------------------------- dil
-sed -i 's/^#en_US.UTF-8/en_US.UTF-8/; s/^#tr_TR.UTF-8/tr_TR.UTF-8/' /etc/locale.gen
-locale-gen
+# ---------------------------------------------------------------- 5. ARKADAŞIN KURULUM BETİKLERİ
+echo "==> install/74-desktop.sh (PARAMETRAL_DESKTOP=both, primary=parametral)"
+bash "$SRC/install/74-desktop.sh"
 
-# ---------------------------------------------------------------- logolar
-install -d /usr/share/backgrounds /usr/share/pixmaps
-if [ -f "$SRC/assets/parametral-mark-512.png" ]; then
-  install -m 0644 "$SRC/assets/parametral-mark-512.png" /usr/share/pixmaps/parametral-logo.png
-fi
-install -m 0644 "$SRC/branding/wallpapers/1920x1080.png" /usr/share/backgrounds/parametral.png
+echo "==> install/45-apps.sh (tarayıcı, konsole, dolphin, gwenview, okular, ark, spectacle)"
+bash "$SRC/install/45-apps.sh" || echo "UYARI: 45-apps.sh basarisiz — temel uygulamalar eksik olabilir"
+
+# ---------------------------------------------------------------- 6. ev dizini sahipliği
+chown -R parametral:parametral /home/parametral 2>/dev/null || true
 
 fc-cache -f >/dev/null 2>&1 || true
 
-# ---------------------------------------------------------------- karşılama notu
+# ---------------------------------------------------------------- 7. karşılama notu
 cat > /etc/motd <<'EOF'
 
   PARAMETRAL OS  ·  live
   ─────────────────────────────────────────────
-  masaüstü  : Parametral (Hyprland + Noctalia) / Plasma — SDDM'de ikisi de var
+  oturumlar : Parametral (Hyprland + Noctalia) · Plasma (KDE)
   kullanıcı : parametral   şifre: parametral
   root      : parametral
   ağ        : nmcli device wifi list   /  nmtui
+  oturum    : parametral-desktop default parametral|plasma
   kurulum   : henüz yok — bu ISO test içindir
 
 EOF

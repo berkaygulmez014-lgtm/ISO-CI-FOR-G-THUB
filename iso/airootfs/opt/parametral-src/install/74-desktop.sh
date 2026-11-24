@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+# 74-desktop.sh — choose and install the desktop edition.
+#
+# The installer asks one question: KDE Plasma or Hyprland (the Parametral session). This
+# script is the single place that turns that answer into packages, a session entry, the
+# SDDM default and /etc/parametral/desktop.conf. It runs inside the installed system
+# (arch-chroot) after 40-users.sh and before 60-boot.sh.
+#
+#   PARAMETRAL_DESKTOP=hyprland bash install/74-desktop.sh
+#   PARAMETRAL_DESKTOP=kde      PARAMETRAL_APPEARANCE=light bash install/74-desktop.sh
+#   PARAMETRAL_DESKTOP=both     bash install/74-desktop.sh     # two sessions, for testing
+#
+#   bash install/74-desktop.sh --list          editions and their session names
+#   bash install/74-desktop.sh --plan hyprland what would be installed (no root, no writes)
+#   bash install/74-desktop.sh --status        what this machine has right now
+#
+# "both" is deliberately supported for VMs and side-by-side review; a normal install picks one.
+set -Eeuo pipefail
+
+SRC="${SRC:-$(cd "$(dirname "$0")/.." && pwd)}"
+DESKTOP="${PARAMETRAL_DESKTOP:-}"
+APPEARANCE="${PARAMETRAL_APPEARANCE:-dark}"
+
+usage() {
+  cat <<'EOF'
+usage: 74-desktop.sh [--list|--plan <kde|hyprland|both>|--status]
+
+environment:
+  PARAMETRAL_DESKTOP    kde | hyprland | both
+  PARAMETRAL_APPEARANCE dark | light        (default: dark)
+  SRC                   repo in the installed system (default: /opt/parametral-src)
+EOF
+}
+
+list_desktops() {
+  cat <<'EOF'
+hyprland	Parametral	Hyprland + Noctalia — the edition we build
+kde     	Plasma   	KDE Plasma — familiar, fully featured, same palette
+both    	Parametral+KDE	two sessions in SDDM, for testing
+EOF
+}
+
+status() {
+  if [ -f /etc/parametral/desktop.conf ]; then
+    grep '^PARAMETRAL_' /etc/parametral/desktop.conf || true
+  else
+    echo "desktop=unset"
+  fi
+  echo "installed-sessions:"
+  for dir in /usr/share/wayland-sessions /usr/share/xsessions; do
+    [ -d "$dir" ] || continue
+    for entry in "$dir"/*.desktop; do
+      [ -f "$entry" ] || continue
+      echo "  $(basename "$entry" .desktop)	$entry"
+    done
+  done
+  if systemctl is-enabled sddm.service >/dev/null 2>&1; then
+    echo "greeter=sddm (enabled)"
+  else
+    echo "greeter=sddm (not enabled)"
+  fi
+}
+
+plan_one() {
+  local edition="$1"
+  local module="$SRC/install/desktop/$edition.sh"
+  if [ ! -x "$module" ]; then
+    echo "desktop module missing: $module" >&2
+    return 1
+  fi
+  bash "$module" --plan
+}
+
+plan() {
+  local edition="$1"
+  case "$edition" in
+    kde|hyprland)
+      echo "desktop=$edition"
+      echo "appearance=$APPEARANCE"
+      echo "primary-session=$( [ "$edition" = hyprland ] && echo parametral || echo plasma )"
+      echo "common-packages=sddm noto-fonts noto-fonts-emoji"
+      plan_one "$edition"
+      ;;
+    both)
+      echo "desktop=both"
+      echo "appearance=$APPEARANCE"
+      echo "primary-session=parametral"
+      echo "common-packages=sddm noto-fonts noto-fonts-emoji"
+      echo "[kde]"
+      plan_one kde
+      echo "[hyprland]"
+      plan_one hyprland
+      ;;
+    *)
+      echo "unknown desktop: $edition (kde, hyprland, both)" >&2
+      return 2
+      ;;
+  esac
+}
+
+# --- flags that must work without root ------------------------------------------------------
+case "${1:-}" in
+  --help|-h) usage; exit 0 ;;
+  --list)    list_desktops; exit 0 ;;
+  --plan)
+    [ $# -ge 2 ] || { echo "--plan needs kde, hyprland or both" >&2; exit 2; }
+    plan "$2"
+    exit $?
+    ;;
+  --status)  status; exit 0 ;;
+  "")        ;;
+  *)         echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+esac
+
+# --- real install --------------------------------------------------------------------------
+[ "$(id -u)" -eq 0 ] || { echo "run as root (or use --plan/--list/--status)" >&2; exit 1; }
+
+case "$DESKTOP" in
+  kde|hyprland|both) ;;
+  "")
+    echo "PARAMETRAL_DESKTOP is not set (kde, hyprland or both)" >&2
+    exit 2
+    ;;
+  *)
+    echo "PARAMETRAL_DESKTOP must be kde, hyprland or both (got: $DESKTOP)" >&2
+    exit 2
+    ;;
+esac
+case "$APPEARANCE" in
+  dark|light) ;;
+  *) echo "PARAMETRAL_APPEARANCE must be dark or light" >&2; exit 2 ;;
+esac
+
+# sddm is the greeter for both editions: one login screen, one branded theme, one place where
+# the session is chosen. Fonts are here because SDDM paints before any desktop starts.
+echo "==> Greeter: SDDM + fonts"
+pacman -S --needed --noconfirm sddm noto-fonts noto-fonts-emoji
+
+PRIMARY=""
+SESSIONS=""
+case "$DESKTOP" in
+  kde)
+    bash "$SRC/install/desktop/kde.sh"
+    PRIMARY=plasma
+    SESSIONS="plasma"
+    ;;
+  hyprland)
+    bash "$SRC/install/desktop/hyprland.sh"
+    PRIMARY=parametral
+    SESSIONS="parametral"
+    ;;
+  both)
+    bash "$SRC/install/desktop/kde.sh"
+    bash "$SRC/install/desktop/hyprland.sh"
+    PRIMARY=parametral
+    SESSIONS="plasma parametral"
+    ;;
+esac
+
+echo "==> /etc/parametral/desktop.conf"
+install -d -m 0755 /etc/parametral
+cat > /etc/parametral/desktop.conf <<EOF
+# Parametral OS — desktop edition selection.
+# Generated by install/74-desktop.sh. Read by 60-boot.sh, 70-verify.sh, 76-xdg-defaults.sh
+# and parametral-desktop.
+PARAMETRAL_DESKTOP=$DESKTOP
+PARAMETRAL_APPEARANCE=$APPEARANCE
+PARAMETRAL_PRIMARY_SESSION=$PRIMARY
+PARAMETRAL_SESSIONS="$SESSIONS"
+EOF
+chmod 0644 /etc/parametral/desktop.conf
+
+# SDDM remembers the last session in its own state file. On a fresh install there is no "last",
+# so it sorts entries alphabetically; writing this file makes the installer's answer the default
+# the first time the greeter opens. The [Autologin] section carries the same name but no User,
+# so it only supplies the default and does not log anyone in.
+echo "==> SDDM varsayılan oturumu: $PRIMARY"
+install -d -m 0755 /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/20-parametral-session.conf <<EOF
+# Generated by install/74-desktop.sh — the session the greeter preselects.
+[Autologin]
+Session=$PRIMARY
+EOF
+chmod 0644 /etc/sddm.conf.d/20-parametral-session.conf
+
+if id sddm >/dev/null 2>&1; then
+  install -d -o sddm -g sddm -m 0750 /var/lib/sddm
+  state=/var/lib/sddm/state.conf
+  last_user=""
+  [ -f "$state" ] && last_user="$(sed -n 's/^User=//p' "$state" | tail -1)"
+  {
+    echo "[Last]"
+    echo "Session=$PRIMARY"
+    [ -n "$last_user" ] && echo "User=$last_user"
+  } > "$state"
+  chown sddm:sddm "$state" 2>/dev/null || true
+  chmod 0640 "$state"
+fi
+
+echo "==> parametral-desktop (durum / oturum seçimi)"
+install -Dm0755 "$SRC/bin/parametral-desktop" /usr/local/bin/parametral-desktop
+
+echo "==> Ortak XDG varsayılanları"
+PARAMETRAL_DESKTOP="$DESKTOP" \
+PARAMETRAL_APPEARANCE="$APPEARANCE" \
+  bash "$SRC/install/76-xdg-defaults.sh"
+
+echo "==> SDDM açılışta"
+systemctl enable sddm.service
+
+echo
+echo "==> done"
+echo "    edition    : $DESKTOP"
+echo "    appearance : $APPEARANCE"
+echo "    sessions   : $SESSIONS"
+echo "    default    : $PRIMARY"
+echo "    change     : parametral-desktop default <session>  (or pick it in SDDM)"

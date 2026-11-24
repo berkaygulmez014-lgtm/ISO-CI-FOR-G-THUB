@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# parametral-snapshot — btrfs snapshot + boot-entry + rollback for Parametral OS.
+#
+#   parametral-snapshot create [label]     read-only snapshot of @ and @home
+#   parametral-snapshot list [--json]      id, label, created, state
+#   parametral-snapshot boot-entry <id>    add a systemd-boot entry booting that snapshot rw
+#   parametral-snapshot promote <id>       make a snapshot the real @ (run from live/other subvol)
+#   parametral-snapshot prune --keep N     delete older snapshots
+#   parametral-snapshot delete <id>
+#
+# Env overrides exist so the logic can be tested without root or a real btrfs (see
+# tests/test_snapshot_tool.py). Do not "simplify" them away: they are the reason the
+# tool has tests at all.
+set -Eeuo pipefail
+
+BTRFS="${PARAMETRAL_BTRFS:-btrfs}"
+SNAP_DIR="${PARAMETRAL_SNAP_DIR:-/.snapshots}"
+BOOT_DIR="${PARAMETRAL_BOOT_DIR:-/boot}"
+ROOT_SUBVOL="${PARAMETRAL_ROOT_SUBVOL:-@}"
+HOME_SUBVOL="${PARAMETRAL_HOME_SUBVOL:-@home}"
+DRY_RUN="${PARAMETRAL_DRY_RUN:-0}"
+DEV="${PARAMETRAL_DEV:-}"          # e.g. UUID=…; needed for boot entries
+# Where the subvolumes are *mounted*. On a booted system these are / and /home
+# (the subvol names @ and @home are only used for snapshot naming and boot entries);
+# at install time, or in tests, point them somewhere else.
+ROOT_PATH="${PARAMETRAL_ROOT_PATH:-${PARAMETRAL_ROOT_PREFIX:-}/}"
+HOME_PATH="${PARAMETRAL_HOME_PATH:-${PARAMETRAL_ROOT_PREFIX:-}/home}"
+ROOT_PATH="${ROOT_PATH%/}"; [ -n "$ROOT_PATH" ] || ROOT_PATH="/"
+HOME_PATH="${HOME_PATH%/}"; [ -n "$HOME_PATH" ] || HOME_PATH="/home"
+
+log()  { printf '[snapshot] %s\n' "$*" >&2; }
+die()  { printf '[snapshot] ERROR: %s\n' "$*" >&2; exit 1; }
+run()  { if [ "$DRY_RUN" = "1" ]; then printf 'DRY %s\n' "$*"; else "$@"; fi; }
+
+require_root() {
+  # A redirected scratch tree (PARAMETRAL_ROOT_PREFIX) needs no privileges: that is
+  # exactly how the tool is tested without touching a real system.
+  if [ "$DRY_RUN" = "1" ] || [ -n "${PARAMETRAL_ROOT_PATH:-}" ] || [ -n "${ROOT_PREFIX:-}" ]; then
+    return 0
+  fi
+  if [ "$(id -u)" -ne 0 ]; then
+    die "must run as root (or PARAMETRAL_DRY_RUN=1 / PARAMETRAL_ROOT_PATH for a scratch run)"
+  fi
+}
+
+new_id() {
+  printf '%s_%s' "$(date -u +%Y%m%dT%H%M%SZ)" "$(printf '%s' "$1" | tr -c 'a-z0-9._-' '-' | cut -c1-24)"
+}
+
+snapshot_path() { printf '%s/%s' "$SNAP_DIR" "$1"; }
+
+cmd_create() {
+  require_root
+  local label="${1:-manual}" id path
+  id="$(new_id "$label")"
+  path="$(snapshot_path "$id")"
+  # two snapshots inside the same second (pacman hooks can be that fast) must not
+  # collide, and the suffix must keep creation order readable
+  local n=2
+  while [ -e "$path" ]; do
+    id="$(new_id "$label")-$n"
+    path="$(snapshot_path "$id")"
+    n=$((n + 1))
+  done
+  mkdir -p "$path"
+  log "creating $id"
+  run "$BTRFS" subvolume snapshot -r "$ROOT_PATH" "$path/$ROOT_SUBVOL"
+  if "$BTRFS" subvolume show "$HOME_PATH" >/dev/null 2>&1; then
+    run "$BTRFS" subvolume snapshot -r "$HOME_PATH" "$path/$HOME_SUBVOL"
+  fi
+  if [ "$DRY_RUN" != "1" ]; then
+    {
+      printf 'id=%s\n' "$id"
+      printf 'label=%s\n' "$label"
+      printf 'created=%s\n' "$(date -u +%FT%TZ)"
+      printf 'kernel=%s\n' "$(uname -r)"
+    } > "$path/.meta"
+    sync
+  fi
+  printf '%s\n' "$id"
+}
+
+cmd_list_json() {
+  [ -d "$SNAP_DIR" ] || { printf '[]\n'; return 0; }
+  local entry label created root_state first=1
+  printf '['
+  for entry in "$SNAP_DIR"/*; do
+    [ -d "$entry" ] || continue
+    label="$(sed -n 's/^label=//p' "$entry/.meta" 2>/dev/null || true)"
+    created="$(sed -n 's/^created=//p' "$entry/.meta" 2>/dev/null || true)"
+    if [ -d "$entry/$ROOT_SUBVOL" ]; then root_state="present"; else root_state="missing"; fi
+    [ "$first" = 1 ] || printf ','
+    first=0
+    printf '{"id":"%s","label":"%s","created":"%s","root":"%s"}' \
+      "$(basename "$entry")" "${label//\"/}" "${created//\"/}" "$root_state"
+  done
+  printf ']\n'
+}
+
+cmd_list() {
+  [ -d "$SNAP_DIR" ] || { log "no snapshots at $SNAP_DIR"; return 0; }
+  printf '%-34s %-16s %-20s %s\n' ID LABEL CREATED ROOT
+  local entry label created root_state
+  for entry in "$SNAP_DIR"/*; do
+    [ -d "$entry" ] || continue
+    label="$(sed -n 's/^label=//p' "$entry/.meta" 2>/dev/null || true)"
+    created="$(sed -n 's/^created=//p' "$entry/.meta" 2>/dev/null || true)"
+    if [ -d "$entry/$ROOT_SUBVOL" ]; then root_state="present"; else root_state="missing"; fi
+    printf '%-34s %-16s %-20s %s\n' "$(basename "$entry")" "${label:-?}" "${created:-?}" "$root_state"
+  done
+}
+
+cmd_boot_entry() {
+  require_root
+  local id="${1:-}" dir entry
+  [ -n "$id" ] || die "boot-entry needs a snapshot id"
+  dir="$(snapshot_path "$id")"
+  [ -d "$dir/$ROOT_SUBVOL" ] || die "no root subvolume in $dir"
+  entry="$BOOT_DIR/loader/entries/parametral-snap-$id.conf"
+  [ -n "$DEV" ] || die "PARAMETRAL_DEV (e.g. UUID=abcd-…) is required for a boot entry"
+  log "writing $entry"
+  if [ "$DRY_RUN" = "1" ]; then
+    printf 'DRY write %s (rootflags=subvol=%s/%s)\n' "$entry" "$SNAP_DIR" "$id"
+    return 0
+  fi
+  mkdir -p "$(dirname "$entry")"
+  cat > "$entry" <<EOF
+title   ParametralOS (snapshot $id)
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=$DEV rootflags=subvol=${SNAP_DIR#/}/$id/$ROOT_SUBVOL rw add_efi_memmap
+EOF
+  printf '%s\n' "$entry"
+}
+
+cmd_promote() {
+  require_root
+  local id="${1:-}" dir stamp
+  if [ "$ROOT_PATH" = "/" ] && [ "$DRY_RUN" != "1" ] && [ -z "${PARAMETRAL_ALLOW_LIVE_PROMOTE:-}" ]; then
+    die "cannot promote the live root subvolume (/) — run from the installer with PARAMETRAL_ROOT_PATH=/mnt"
+  fi
+  [ -n "$id" ] || die "promote needs a snapshot id"
+  if [ "$ROOT_SUBVOL" != "@" ] && [ "${PARAMETRAL_ALLOW_FOREIGN:-0}" != "1" ]; then
+    die "refusing to promote into '$ROOT_SUBVOL' (set PARAMETRAL_ALLOW_FOREIGN=1 to override)"
+  fi
+  dir="$(snapshot_path "$id")"
+  [ -d "$dir/$ROOT_SUBVOL" ] || die "no root subvolume in $dir"
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  log "promoting $id to $ROOT_PATH (current one parked as $ROOT_PATH.old-$stamp)"
+  run mv "$ROOT_PATH" "$ROOT_PATH.old-$stamp"
+  run "$BTRFS" subvolume snapshot "$dir/$ROOT_SUBVOL" "$ROOT_PATH"
+  run rm -f "$BOOT_DIR/loader/entries/parametral-snap-$id.conf"
+  log "done — reboot; the pre-promote tree is $ROOT_PATH.old-$stamp (delete when happy)"
+}
+
+cmd_delete() {
+  require_root
+  local id="${1:-}" dir
+  [ -n "$id" ] || die "delete needs a snapshot id"
+  dir="$(snapshot_path "$id")"
+  [ -d "$dir" ] || die "unknown snapshot $id"
+  [ -d "$dir/$ROOT_SUBVOL" ] && run "$BTRFS" subvolume delete "$dir/$ROOT_SUBVOL"
+  [ -d "$dir/$HOME_SUBVOL" ] && run "$BTRFS" subvolume delete "$dir/$HOME_SUBVOL"
+  run rm -rf "$dir"
+}
+
+cmd_prune() {
+  require_root
+  local keep=10
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --keep) keep="${2:-}"; shift 2 ;;
+      *) die "prune: unknown argument $1" ;;
+    esac
+  done
+  case "$keep" in (*[!0-9]*|'') die "--keep needs a number" ;; esac
+  local ids=() entry
+  for entry in "$SNAP_DIR"/*; do
+    [ -d "$entry" ] && ids+=("$(basename "$entry")")
+  done
+  ((${#ids[@]} <= keep)) && { log "nothing to prune (${#ids[@]} <= $keep)"; return 0; }
+  local sorted=() i
+  # order by mtime, not by name: same-second ids sort alphabetically and would keep
+  # the wrong snapshot otherwise
+  while IFS= read -r i; do sorted+=("$i"); done < <(
+    find "$SNAP_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' | sort -n | cut -d' ' -f2-
+  )
+  local excess=$(( ${#sorted[@]} - keep ))
+  for ((i = 0; i < excess; i++)); do
+    log "pruning ${sorted[$i]}"
+    cmd_delete "${sorted[$i]}" || log "could not delete ${sorted[$i]}"
+  done
+}
+
+usage() {
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+main() {
+  local cmd="${1:-}"; shift || true
+  case "$cmd" in
+    create)     cmd_create "${1:-manual}" ;;
+    list)
+      # `list --json` for the GUI / AI: the padded table is for humans only
+      if [ "${1:-}" = "--json" ]; then cmd_list_json; else cmd_list; fi
+      ;;
+    boot-entry) cmd_boot_entry "${1:-}" ;;
+    promote)    cmd_promote "${1:-}" ;;
+    delete)     cmd_delete "${1:-}" ;;
+    prune)      cmd_prune "$@" ;;
+    ""|-h|--help|help) usage ;;
+    *) die "unknown command '$cmd'" ;;
+  esac
+}
+
+main "$@"

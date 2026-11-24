@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""parametral-install — the branded installer wizard for the live image.
+
+A terminal wizard on purpose: the live ISO carries no Qt, and a TUI that always works
+beats a GUI that sometimes does not. It only collects answers and calls the numbered
+install/ scripts, so the logic stays in one place.
+
+    parametral-install                     normal run
+    parametral-install --dry-run           print the plan, touch nothing
+    parametral-install --desktop hyprland  skip the desktop question
+    parametral-install --list-desktops     machine-readable edition list
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+
+AMBER = "\033[38;5;214m"
+DIM = "\033[38;5;245m"
+INK = "\033[38;5;253m"
+RED = "\033[38;5;167m"
+BOLD = "\033[1m"
+OFF = "\033[0m"
+
+SRC = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(SRC)
+
+DESKTOPS = [
+    ("hyprland", "Hyprland", "Parametral oturumu — Hyprland + Noctalia bar (önerilen)"),
+    ("kde", "KDE Plasma", "tanıdık, tam donanımlı, aynı Parametral paleti"),
+    ("both", "İkisi de", "iki oturum — SDDM'de seçersin (test/karşılaştırma)"),
+]
+DESKTOP_LABEL = {key: f"{label} — {desc}" for key, label, desc in DESKTOPS}
+
+MARK = r"""
+      .  *  .
+   .    ___    .
+     .-/   \-.       P A R A M E T R A L
+      |  o  |         minimal · reversible · governed
+     '-.___.-'
+"""
+
+
+def clear():
+    print("\033[2J\033[H", end="")
+
+
+def header(title):
+    clear()
+    print(f"{AMBER}{MARK}{OFF}")
+    print(f"{DIM}{'─' * 62}{OFF}")
+    print(f"{BOLD}{INK} {title}{OFF}")
+    print(f"{DIM}{'─' * 62}{OFF}\n")
+
+
+def ask(prompt, default=""):
+    suffix = f" {DIM}[{default}]{OFF}" if default else ""
+    while True:
+        try:
+            value = input(f"{AMBER}?{OFF} {prompt}{suffix}: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nİptal edildi.")
+            sys.exit(130)
+        if value:
+            return value
+        if default:
+            return default
+
+
+def ask_secret(prompt):
+    import getpass
+
+    while True:
+        try:
+            a = getpass.getpass(f"{AMBER}?{OFF} {prompt}: ")
+            b = getpass.getpass(f"{AMBER}?{OFF} {prompt} (tekrar): ")
+        except (EOFError, KeyboardInterrupt):
+            print("\nİptal edildi.")
+            sys.exit(130)
+        if len(a) < 6:
+            print(f"{RED}   En az 6 karakter.{OFF}")
+            continue
+        if "\n" in a or "\r" in a:
+            print(f"{RED}   Parola satır sonu içeremez.{OFF}")
+            continue
+        if a != b:
+            print(f"{RED}   Parolalar uyuşmuyor.{OFF}")
+            continue
+        return a
+
+
+def menu(prompt, options, default_index=0):
+    print(f"{AMBER}?{OFF} {prompt}")
+    for i, opt in enumerate(options):
+        mark = f"{AMBER}●{OFF}" if i == default_index else f"{DIM}○{OFF}"
+        print(f"   {mark} {i + 1}) {opt}")
+    while True:
+        raw = ask("Seçim", str(default_index + 1))
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(options):
+                return idx
+        except ValueError:
+            pass
+        print(f"{RED}   Geçersiz seçim.{OFF}")
+
+
+def disks():
+    out = []
+    try:
+        lsblk = subprocess.run(
+            ["lsblk", "-dno", "NAME,SIZE,TYPE,MODEL"],
+            capture_output=True, text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return out
+    for line in lsblk.splitlines():
+        parts = line.split()
+        if len(parts) < 3 or parts[2] != "disk":
+            continue
+        name, size, model = parts[0], parts[1], " ".join(parts[3:]) or "disk"
+        if name.startswith(("loop", "sr", "zram")):
+            continue
+        out.append((name, size, model))
+    return out
+
+
+def payload_ready(desktop):
+    """Is the edition's module in this payload?
+
+    The installer must never print "Hyprland installed" when the payload only carries the
+    scripts for one edition. `both` is ready only when both modules are ready.
+    """
+    wanted = ["kde", "hyprland"] if desktop == "both" else [desktop]
+    for edition in wanted:
+        module = os.path.join(SRC, "desktop", f"{edition}.sh")
+        if not os.path.isfile(module):
+            return False
+        if edition == "hyprland":
+            if not os.path.isfile(os.path.join(SRC, "..", "branding", "hypr", "parametral.lua")):
+                return False
+    return True
+
+
+def available_desktops():
+    return [key for key, _, _ in DESKTOPS if payload_ready(key)]
+
+
+def choose_desktop(args, available):
+    if args.desktop:
+        if args.desktop not in available:
+            print(f"{RED}Bu payload {args.desktop} masaüstünü içermiyor.{OFF}")
+            print(f"{DIM}Hazır olanlar: {', '.join(available)}{OFF}")
+            sys.exit(2)
+        return args.desktop
+
+    options = [DESKTOP_LABEL[key] for key in available]
+    if len(available) == 1:
+        print(f"{DIM}Bu payload yalnız {available[0]} içeriyor.{OFF}")
+        return available[0]
+    idx = menu("Masaüstü ortamı", options)
+    return available[idx]
+
+
+def choose_appearance(args):
+    if args.appearance:
+        return args.appearance
+    appearance = menu("Görünüm", [
+        "Parametral koyu — grafit + amber (önerilen)",
+        "Parametral açık — krem + amber",
+    ])
+    return "light" if appearance == 1 else "dark"
+
+
+def chroot_env(env):
+    wanted = {**env, "SRC": "/opt/parametral-src"}
+    return [f"{key}={value}" for key, value in wanted.items() if key.startswith("PARAMETRAL_") or key == "SRC"]
+
+
+def run_step(title, script, args=(), env=None, where="host", dry=False):
+    print(f"\n{AMBER}▶{OFF} {BOLD}{title}{OFF}")
+    if where == "chroot":
+        inner = "cd /opt/parametral-src && " + shlex.join(
+            ["bash", f"install/{script}", *args])
+        cmd = ["arch-chroot", "/mnt", "env", *chroot_env(env or {}), "bash", "-c", inner]
+        run_env = None
+    else:
+        cmd = ["bash", os.path.join(SRC, script), *args]
+        run_env = {**os.environ, **(env or {})}
+
+    if dry:
+        print(f"  {DIM}(dry-run) {' '.join(shlex.quote(part) for part in cmd)}{OFF}")
+        return True
+    started = time.time()
+    proc = subprocess.run(cmd, env=run_env)
+    elapsed = int(time.time() - started)
+    if proc.returncode != 0:
+        print(f"{RED}✗ {title} başarısız (çıkış {proc.returncode}){OFF}")
+        return False
+    print(f"{DIM}  ✓ {elapsed}s{OFF}")
+    return True
+
+
+def install_payload(dry=False):
+    print(f"\n{AMBER}▶{OFF} {BOLD}Payload hedef sisteme{OFF}")
+    destination = "/mnt/opt/parametral-src"
+    if dry:
+        print(f"  {DIM}(dry-run) cp -a {REPO} {destination}{OFF}")
+        return True
+    os.makedirs("/mnt/opt", exist_ok=True)
+    shutil.rmtree(destination, ignore_errors=True)
+    shutil.copytree(
+        REPO, destination,
+        ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "target", "proofs", ".github"),
+    )
+    print(f"{DIM}  ✓ {destination}{OFF}")
+    return True
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="parametral-install",
+        description="Parametral OS kurulum sihirbazı",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="planı yaz, hiçbir şeyi değiştirme")
+    parser.add_argument("--desktop", choices=[key for key, _, _ in DESKTOPS],
+                        help="masaüstü sorusunu atla")
+    parser.add_argument("--appearance", choices=("dark", "light"),
+                        help="görünüm sorusunu atla")
+    parser.add_argument("--list-desktops", action="store_true",
+                        help="bu payload'daki masaüstlerini listele ve çık")
+    args = parser.parse_args(argv)
+
+    available = available_desktops()
+    if args.list_desktops:
+        for key, label, desc in DESKTOPS:
+            state = "ready" if payload_ready(key) else "missing"
+            print(f"{key}\t{label}\t{desc}\t{state}")
+        return 0
+
+    if not args.dry_run and os.geteuid() != 0:
+        print(f"{RED}Root olarak çalıştır.{OFF}")
+        return 1
+
+    if not available:
+        print(f"{RED}Bu payload'da masaüstü modülü yok — install/desktop/ eksik.{OFF}")
+        return 1
+
+    header("Kurulum · 1/5 — Disk")
+    found = disks()
+    if not found and not args.dry_run:
+        print(f"{RED}Disk bulunamadı.{OFF}")
+        return 1
+    labels = [f"/dev/{n:<8} {s:>7}  {m}" for n, s, m in found]
+    labels.append("Elle yol gireceğim")
+    idx = menu("Sistem hangi diske kurulsun? (silinecek)", labels) if found else len(found)
+    if idx == len(found):
+        target = "/dev/" + ask("Disk yolu")
+    else:
+        target = "/dev/" + found[idx][0]
+
+    header("Kurulum · 2/5 — Şifreleme")
+    enc = menu("Disk şifrelensin mi (LUKS2)?", [
+        "Evet — açılışta parola sorulur (önerilen)",
+        "Hayır — parolasız açılır (yalnız test için)",
+    ])
+    luks = "1" if enc == 0 else "0"
+
+    header("Kurulum · 3/5 — Sistem")
+    hostname = ask("Bilgisayar adı", "parametral")
+    username = ask("Kullanıcı adı", "operator")
+
+    desktop = choose_desktop(args, available)
+    appearance = choose_appearance(args)
+
+    header("Kurulum · 4/5 — Parola")
+    print(f"{DIM}Bu parola {username} hesabı için. LUKS parolası 20-disk adımında ayrıca sorulur.{OFF}")
+    password = ask_secret("Parola")
+
+    header("Kurulum · 5/5 — Özet")
+    print(f"  disk        : {BOLD}{target}{OFF}")
+    print(f"  şifreleme   : {BOLD}{'LUKS2' if luks == '1' else 'kapalı'}{OFF}")
+    print(f"  bilgisayar  : {BOLD}{hostname}{OFF}")
+    print(f"  kullanıcı   : {BOLD}{username}{OFF}")
+    print(f"  görünüm     : {BOLD}{'Parametral açık' if appearance == 'light' else 'Parametral koyu'}{OFF}")
+    print(f"  masaüstü    : {BOLD}{DESKTOP_LABEL[desktop]}{OFF}")
+    print()
+    print(f"{RED}{BOLD}UYARI:{OFF} {target} üzerindeki TÜM veriler silinecek.")
+    if ask("Onaylamak için YES yaz", "hayır").upper() != "YES":
+        print("Vazgeçildi.")
+        return 1
+
+    env = {
+        "PARAMETRAL_HOSTNAME": hostname,
+        "PARAMETRAL_USER": username,
+        "PARAMETRAL_PASSWORD": password,
+        "PARAMETRAL_LUKS": luks,
+        "PARAMETRAL_APPEARANCE": appearance,
+        "PARAMETRAL_DESKTOP": desktop,
+    }
+
+    steps = [
+        ("Ön kontrol", "10-preflight.sh", [target, "--yes"], "host"),
+        ("Disk ve btrfs", "20-disk.sh",
+         [target, "--yes"] + ([] if luks == "1" else ["--no-luks"]), "host"),
+        ("Temel sistem (iki çekirdek + nix)", "30-bootstrap.sh", [], "host"),
+        ("Nix (uygulama paket yöneticisi)", "35-nix.sh", [], "host"),
+        ("Kullanıcılar", "40-users.sh", ["--non-interactive"], "chroot"),
+        ("Marka (splash + giriş)", "65-branding.sh", [], "host"),
+        ("Masaüstü ortamı", "74-desktop.sh", [], "chroot"),
+        ("Uygulamalar", "45-apps.sh", [], "chroot"),
+        ("AI hesabı + onay penceresi", "78-ai.sh", [], "chroot"),
+        ("Snapshot'lar", "50-snapshots.sh", [], "chroot"),
+        ("Önyükleyici", "60-boot.sh", [], "chroot"),
+        ("Doğrulama", "70-verify.sh", [], "chroot"),
+    ]
+
+    header("Kurulum başlıyor")
+    for title, script, step_args, where in steps:
+        if title == "Kullanıcılar":
+            # The payload must exist inside /mnt before arch-chroot can run 40-users.sh.
+            if not install_payload(dry=args.dry_run):
+                print(f"\n{RED}Payload kopyalanamadı.{OFF}")
+                return 1
+        if not run_step(title, script, step_args, env=env, where=where, dry=args.dry_run):
+            print(f"\n{RED}Kurulum durdu. Düzeltip tekrar deneyebilirsin.{OFF}")
+            return 1
+
+    header("Bitti")
+    print(f"  {AMBER}✓{OFF} Parametral OS kuruldu.")
+    print(f"  {DIM}Kullanıcı:{OFF} {username}")
+    print(f"  {DIM}Masaüstü:{OFF} {DESKTOP_LABEL[desktop]}")
+    print(f"  {DIM}Disk:{OFF} {target}")
+    print(f"\n  Yeniden başlat: {BOLD}reboot{OFF}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

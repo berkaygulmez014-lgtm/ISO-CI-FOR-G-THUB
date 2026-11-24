@@ -1,0 +1,40 @@
+[Unit]
+Description=Parametral OS tier-2 hard-deny oracle
+Documentation=file:///usr/share/doc/parametral/ARCHITECTURE.md
+After=local-fs.target
+Before=parametrald.service
+ConditionPathExists=/etc/parametral/policy/hard_deny.v1.json
+
+[Service]
+Type=simple
+User=parametral
+Group=parametral
+RuntimeDirectory=parametral
+RuntimeDirectoryMode=0750
+# Both units declare RuntimeDirectory=parametral; without Preserve, stopping either one
+# deletes the directory and takes the other service's socket with it.
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/local/bin/parametral-harddeny \
+    --rules /etc/parametral/policy/hard_deny.v1.json \
+    --pub /etc/parametral/keys/hard_deny.v1.pub \
+    --socket /run/parametral/harddeny.sock
+Restart=on-failure
+RestartSec=2s
+# The oracle must never be able to rewrite what it enforces.
+ReadOnlyPaths=/etc/parametral /usr/local/bin
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

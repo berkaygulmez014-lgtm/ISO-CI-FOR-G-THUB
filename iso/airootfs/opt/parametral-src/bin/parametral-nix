@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# parametral-nix — the front door to the package manager.
+#
+# One place to install, remove and inspect applications, so the AI (through the capability
+# gateway) and the human use exactly the same commands. Everything is a Nix profile
+# generation: `rollback` undoes the last change without touching the rest of the system.
+set -Eeuo pipefail
+
+usage() {
+  cat <<'EOF'
+parametral-nix — Parametral OS paket arayüzü (Nix)
+
+  parametral-nix install <nixpkgs#paket> [...]   profiline kur
+  parametral-nix remove  <ad> [...]              profilden kaldır
+  parametral-nix list                            kurulu paketler
+  parametral-nix search  <terim>                 nixpkgs'te ara
+  parametral-nix upgrade                         profili güncelle
+  parametral-nix rollback                        önceki profile dön
+  parametral-nix generations                     profil geçmişi
+  parametral-nix which   <komut>                 komutun store yolu
+
+Kurulumlar /usr'ye dokunmaz; her işlem geri alınabilir bir generation'dır.
+EOF
+}
+
+need_nix() {
+  command -v nix >/dev/null 2>&1 || { echo "nix bulunamadı (35-nix.sh çalıştırıldı mı?)" >&2; exit 1; }
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  install|add)
+    need_nix
+    [ "$#" -gt 0 ] || { echo "kullanım: parametral-nix install nixpkgs#paket" >&2; exit 2; }
+    exec nix profile add "$@"
+    ;;
+  remove|rm)
+    need_nix
+    [ "$#" -gt 0 ] || { echo "kullanım: parametral-nix remove <ad>" >&2; exit 2; }
+    exec nix profile remove "$@"
+    ;;
+  list|ls)
+    need_nix
+    exec nix profile list "$@"
+    ;;
+  search)
+    need_nix
+    [ "$#" -gt 0 ] || { echo "kullanım: parametral-nix search <terim>" >&2; exit 2; }
+    exec nix search nixpkgs "$@"
+    ;;
+  upgrade)
+    need_nix
+    exec nix profile upgrade --all "$@"
+    ;;
+  generations|gen)
+    need_nix
+    exec nix profile history "$@"
+    ;;
+  rollback)
+    need_nix
+    exec nix profile rollback "$@"
+    ;;
+  which)
+    need_nix
+    [ "$#" -gt 0 ] || { echo "kullanım: parametral-nix which <komut>" >&2; exit 2; }
+    command -v "$1" || { echo "bulunamadı: $1" >&2; exit 1; }
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "bilinmeyen komut: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

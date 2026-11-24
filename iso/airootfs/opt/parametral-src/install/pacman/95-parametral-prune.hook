@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Pruning old snapshots (keeping 10)...
+When = PostTransaction
+Exec = /usr/local/bin/parametral-snapshot prune --keep 10

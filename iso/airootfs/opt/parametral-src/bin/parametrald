@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Parametral OS daemon entry point (same code as `parametral serve`).
+
+The systemd unit passes a flat list of options:
+
+    parametrald --state /var/lib/parametral --socket /run/parametral/control.sock \
+                --policy /etc/parametral/policy/policy.v1.json \
+                --harddeny-socket /run/parametral/harddeny.sock
+
+The CLI splits them: `--state`/`--socket` are global options, `--policy` and
+`--harddeny-*` belong to the `serve` subcommand. Feeding the flat list to argparse
+unchanged fails ("invalid choice"), so this entry point sorts them into the order the
+parser expects.
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "src"))
+
+from parametral.cli import main
+
+SERVE_OPTS = ("--policy", "--harddeny-socket", "--harddeny-rules")
+
+
+def split_argv(argv):
+    """Return (global_args, serve_args) for the flat option list the unit passes."""
+    global_args, serve_args = [], []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in SERVE_OPTS:
+            serve_args.append(arg)
+            if i + 1 < len(argv):
+                serve_args.append(argv[i + 1])
+                i += 2
+                continue
+            i += 1
+            continue
+        if any(arg.startswith(opt + "=") for opt in SERVE_OPTS):
+            serve_args.append(arg)
+            i += 1
+            continue
+        global_args.append(arg)
+        i += 1
+    return global_args, serve_args
+
+
+if __name__ == "__main__":
+    global_args, serve_args = split_argv(sys.argv[1:])
+    raise SystemExit(main(global_args + ["serve"] + serve_args))
