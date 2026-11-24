@@ -38,19 +38,36 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: parametral-iso
-          path: out/*.iso
+          path: out/*
           retention-days: 14
 
       - name: Release'e yükle
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          files: out/*.iso
+          files: out/*
           generate_release_notes: true
           tag_name: ${{ inputs.tag || github.ref_name }}
           name: Parametral OS ${{ inputs.tag || github.ref_name }}
           body: |
             Parametral OS live ISO.
+
+            GitHub tek dosyada 2 GiB sınırı koyduğu için ISO parçalı geliyor.
+            Bütün `*.part` dosyalarını indir, aynı klasöre koy ve birleştir:
+
+            **Windows (cmd):**
+            ```
+            copy /b parametral-os-....iso.part00+parametral-os-....iso.part01 parametral-os.iso
+            ```
+            **Linux/macOS:**
+            ```
+            cat parametral-os-*.iso.part* > parametral-os.iso
+            ```
+            Sonra `.sha256` dosyasındaki değerle doğrula:
+            ```
+            certutil -hashfile parametral-os.iso SHA256      (Windows)
+            sha256sum parametral-os.iso                       (Linux)
+            ```
 
             - kullanıcı: `parametral` / şifre: `parametral`
             - UEFI + BIOS önyükleme

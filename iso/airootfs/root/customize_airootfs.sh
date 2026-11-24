@@ -19,9 +19,9 @@ echo "==> plymouth (install/65-branding.sh ile aynı kaynaklar)"
 install -d /usr/share/plymouth/themes/parametral
 cp -r "$SRC/branding/plymouth/parametral/." /usr/share/plymouth/themes/parametral/
 plymouth-set-default-theme parametral || echo "UYARI: plymouth-set-default-theme basarisiz"
-# initramfs'i BURADA üretmiyoruz: archiso kendi initramfs'ini customize'dan ÖNCE kuruyor
-# (hook'lar o an chroot'ta yok, "Hook 'archiso' cannot be found" hatası verir). plymouth hook'u
-# /etc/mkinitcpio.conf.d/archiso.conf içinde duruyor, tema dosyaları da squashfs'e giriyor.
+# initramfs'i burada üretiyoruz: mkinitcpio-archiso paket listesinde olduğu için artık
+# archiso hook'lari chroot'ta VAR; splash bu sayede initramfs'e giriyor.
+mkinitcpio -P || echo "UYARI: mkinitcpio basarisiz"
 
 # ---------------------------------------------------------------- 2. SDDM (giriş ekranı)
 echo "==> sddm teması (install/65-branding.sh ile aynı)"
@@ -59,6 +59,9 @@ systemctl enable NetworkManager.service
 systemctl enable bluetooth.service || true
 
 # ---------------------------------------------------------------- 5. ARKADAŞIN KURULUM BETİKLERİ
+# pacman chroot içinde statvfs yapamadığı için "not enough free disk space" diyip duruyor
+# (45 MiB'lik kurulumu bile reddetti). Bu kontrolü kapatıyoruz; diskte 113 GB boş.
+sed -i 's/^CheckSpace/#CheckSpace/' /etc/pacman.conf
 echo "==> install/74-desktop.sh (PARAMETRAL_DESKTOP=both, primary=parametral)"
 bash "$SRC/install/74-desktop.sh"
 
@@ -67,6 +70,10 @@ bash "$SRC/install/45-apps.sh" || echo "UYARI: 45-apps.sh basarisiz — temel uy
 
 # ---------------------------------------------------------------- 6. ev dizini sahipliği
 chown -R parametral:parametral /home/parametral 2>/dev/null || true
+
+# pacman önbelleği squashfs'e girmesin (kurulum sırasında indirilen ~150 MB)
+pacman -Scc --noconfirm >/dev/null 2>&1 || true
+rm -rf /var/cache/pacman/pkg/* 2>/dev/null || true
 
 fc-cache -f >/dev/null 2>&1 || true
 

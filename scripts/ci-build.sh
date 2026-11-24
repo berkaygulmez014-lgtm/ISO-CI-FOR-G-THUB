@@ -33,5 +33,14 @@ chmod +x /tmp/p/profiledef.sh /tmp/p/airootfs/root/customize_airootfs.sh
 
 mkdir -p /build/out
 mkarchiso -v -w /tmp/work -o /build/out /tmp/p
-ls -lh /build/out
+
+# GitHub Release tek dosyada 2 GiB siniri koyuyor; ISO ~2,4 GB oldugu icin boluyoruz.
+cd /build/out
+iso="$(ls *.iso | head -1)"
+echo "ISO: $iso  $(stat -c %s "$iso") bayt"
+sha256sum "$iso" > "${iso}.sha256"
+split -b 1900M -d -a 2 "$iso" "${iso}.part"
+rm -f "$iso"
+ls -lh
+cat *.sha256
 '

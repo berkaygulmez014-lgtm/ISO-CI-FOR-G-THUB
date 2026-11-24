@@ -3,6 +3,8 @@ syslinux
 edk2-shell
 linux
 linux-firmware
+mkinitcpio
+mkinitcpio-archiso
 amd-ucode
 intel-ucode
 sudo
