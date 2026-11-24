@@ -19,7 +19,9 @@ echo "==> plymouth (install/65-branding.sh ile aynı kaynaklar)"
 install -d /usr/share/plymouth/themes/parametral
 cp -r "$SRC/branding/plymouth/parametral/." /usr/share/plymouth/themes/parametral/
 plymouth-set-default-theme parametral || echo "UYARI: plymouth-set-default-theme basarisiz"
-mkinitcpio -P || echo "UYARI: mkinitcpio basarisiz — splash initramfs'e girmedi"
+# initramfs'i BURADA üretmiyoruz: archiso kendi initramfs'ini customize'dan ÖNCE kuruyor
+# (hook'lar o an chroot'ta yok, "Hook 'archiso' cannot be found" hatası verir). plymouth hook'u
+# /etc/mkinitcpio.conf.d/archiso.conf içinde duruyor, tema dosyaları da squashfs'e giriyor.
 
 # ---------------------------------------------------------------- 2. SDDM (giriş ekranı)
 echo "==> sddm teması (install/65-branding.sh ile aynı)"
@@ -44,8 +46,10 @@ locale-gen
 # ---------------------------------------------------------------- 4. canlı kullanıcı
 # ÖNEMLİ: 75-desktop.sh ve hyprland.sh /home/* üzerinde döner. Kullanıcı onlardan önce
 # oluşturulmazsa marka hiçbir eve yazılmaz.
+# ÖNEMLİ 2: birincil grup kullanıcıyla aynı adı taşımalı (install -g "$user") — bu yüzden
+# -g users DEĞİL, useradd'in kendi grubunu kurmasına izin veriyoruz.
 echo "==> canlı kullanıcı"
-useradd -m -g users -G wheel,audio,video,optical,storage,input -s /bin/bash parametral
+useradd -m -G wheel,audio,video,optical,storage,input -s /bin/bash parametral
 echo 'parametral:parametral' | chpasswd
 echo 'root:parametral' | chpasswd
 echo 'parametral ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/10-parametral
