@@ -42,12 +42,22 @@ mkarchiso -v -w /tmp/work -o /build/out /tmp/p
 # Bu yuzden bulunan TUM initramfsleri dene: en az biri archiso hooku tasimali.
 mapfile -t IRS < <(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null)
 [ "${#IRS[@]}" -gt 0 ] || { echo "HATA: initramfs bulunamadi" >&2; exit 1; }
-echo "--- teshis: lsinitcpio=$(command -v lsinitcpio || echo YOK) ---"
+# DIKKAT: archlinux:latest konteynerinde lsinitcpio YOK (mkinitcpio 42 ile gelmiyor) —
+# kontrol sessizce "hook yok" diyordu (v0.1.13/14/15 boyle dustu). lsinitcpio varsa onu
+# kullan, yoksa initramfs'i acip cpio basliklarindaki yollari grep'le.
+has_archiso() {
+  local ir="$1"
+  if command -v lsinitcpio >/dev/null 2>&1; then
+    lsinitcpio -l "$ir" 2>/dev/null | grep -qi 'hooks/archiso'
+    return
+  fi
+  { zstd -dc "$ir" 2>/dev/null || xz -dc "$ir" 2>/dev/null || gzip -dc "$ir" 2>/dev/null || cat "$ir"; } \
+    | grep -qa 'hooks/archiso'
+}
+echo "--- teshis: lsinitcpio=$(command -v lsinitcpio || echo YOK), zstd=$(command -v zstd || echo YOK) ---"
 ok=0
 for IR in "${IRS[@]}"; do
-  echo "--- $IR ($(stat -c %s "$IR") bayt) ---"
-  lsinitcpio -l "$IR" 2>&1 | grep -iE "archiso|error|command not found" | head -5 || true
-  if lsinitcpio -l "$IR" 2>/dev/null | grep -qi archiso; then
+  if has_archiso "$IR"; then
     echo "KONTROL OK: archiso hook var -> $IR"
     ok=1
     break
