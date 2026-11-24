@@ -42,8 +42,11 @@ mkarchiso -v -w /tmp/work -o /build/out /tmp/p
 # Bu yuzden bulunan TUM initramfsleri dene: en az biri archiso hooku tasimali.
 mapfile -t IRS < <(find /tmp/work -name 'initramfs-linux.img' 2>/dev/null)
 [ "${#IRS[@]}" -gt 0 ] || { echo "HATA: initramfs bulunamadi" >&2; exit 1; }
+echo "--- teshis: lsinitcpio=$(command -v lsinitcpio || echo YOK) ---"
 ok=0
 for IR in "${IRS[@]}"; do
+  echo "--- $IR ($(stat -c %s "$IR") bayt) ---"
+  lsinitcpio -l "$IR" 2>&1 | grep -iE "archiso|error|command not found" | head -5 || true
   if lsinitcpio -l "$IR" 2>/dev/null | grep -qi archiso; then
     echo "KONTROL OK: archiso hook var -> $IR"
     ok=1
