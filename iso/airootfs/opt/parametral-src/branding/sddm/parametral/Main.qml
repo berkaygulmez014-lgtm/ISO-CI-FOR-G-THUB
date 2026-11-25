@@ -171,6 +171,19 @@ Rectangle {
         font.pixelSize: 16 * root.u
     }
 
+    // ── oturum listesini toplayan görünmez tekne ─────────────────────────────
+    Item {
+        id: sessionCollector
+        visible: false
+        Repeater {
+            model: sessionModel
+            delegate: Item {
+                Component.onCompleted: root.noteSession(index, "" + model.name)
+            }
+        }
+    }
+    Timer { id: rebuildTimer; interval: 0; onTriggered: root.buildSessionCards() }
+
     // ── centre column ────────────────────────────────────────────────────────
     Column {
         id: centre
@@ -230,7 +243,7 @@ Rectangle {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "MASAÜSTÜ"
+                text: "MASAÜSTÜ SEÇ"
                 color: root.cMuted
                 font.family: "DejaVu Sans"
                 font.weight: Font.Light
@@ -244,14 +257,14 @@ Rectangle {
 
                 Repeater {
                     id: sessionRepeater
-                    model: sessionModel
+                    model: root.sessionCards
 
                     delegate: Rectangle {
                         id: sessionCard
-                        property bool active: root.chosenSession === index
+                        property bool active: root.chosenSession === modelData.real
                         width: (520 * root.u - (sessionRepeater.count - 1) * 10 * root.u)
                                / Math.max(1, sessionRepeater.count)
-                        height: 74 * root.u
+                        height: 82 * root.u
                         radius: 14 * root.u
                         color: active ? "#e0a93b"
                              : (sessionPointer.containsMouse ? root.cHover : root.cCard)
@@ -260,14 +273,25 @@ Rectangle {
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 3 * root.u
-                            width: parent.width - 14 * root.u
+                            spacing: 4 * root.u
+                            width: parent.width - 10 * root.u
 
+                            // üst satır: oturum tipi (etiket kısa, kesilmesin)
                             Text {
                                 width: parent.width
                                 horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                                text: root.friendlySession(model.name)
+                                text: ("" + modelData.label).toUpperCase()
+                                color: sessionCard.active ? root.cOnAccent : root.cMuted
+                                font.family: "DejaVu Sans"
+                                font.weight: Font.DemiBold
+                                font.pixelSize: 9 * root.u
+                                font.letterSpacing: 1.3 * root.u
+                            }
+                            // asıl ad: kart genişliği 3 karta bölündüğü için tam sığar
+                            Text {
+                                width: parent.width
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.name
                                 color: sessionCard.active ? root.cOnAccent : root.cInk
                                 font.family: "DejaVu Sans"
                                 font.pixelSize: 15 * root.u
@@ -275,12 +299,11 @@ Rectangle {
                             Text {
                                 width: parent.width
                                 horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                                text: root.sessionHint(model.name)
+                                text: modelData.hint
                                 color: sessionCard.active ? root.cOnAccent : root.cMuted
                                 font.family: "DejaVu Sans"
                                 font.weight: Font.Light
-                                font.pixelSize: 11 * root.u
+                                font.pixelSize: 10 * root.u
                             }
                         }
 
@@ -289,7 +312,7 @@ Rectangle {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.chosenSession = index
+                            onClicked: root.chosenSession = modelData.real
                         }
                     }
                 }
@@ -512,23 +535,59 @@ Rectangle {
         }
     }
 
-    // Oturum adlarını tanınır hâle getir: SDDM'in ham adları ("parametral",
-    // "plasma", "parametral-x11") kullanıcıya bir şey söylemiyor.
-    function friendlySession(raw) {
+    // SDDM'in oturum listesi aynı masaüstünü birden çok kez veriyor
+    // (hyprland + hyprland-uwsm, plasma + plasma-x11, xfce + parametral-x11 ...).
+    // Kart olarak her masaüstü BİR kez çıksın diye isimler önce toplanıyor, sonra
+    // gruplara indirgeniyor. Toplama işi görünmez bir Repeater'da yapılıyor:
+    // rowCount() bazı SDDM sürümlerinde QML'den çağrılamıyor.
+    property var sessionNames: []
+    property var sessionCards: []
+
+    function sessionGroup(raw) {
         var s = ("" + raw).toLowerCase()
-        if (s === "parametral") return "Hyprland"
-        if (s.indexOf("plasma") === 0) return "KDE Plasma"
-        if (s.indexOf("parametral-x11") === 0) return "Parametral X11"
-        if (s === "xfce" || s.indexOf("xfce") === 0) return "Parametral X11"
-        return "" + raw
+        if (s === "parametral" || s.indexOf("hypr") >= 0) return "hypr"
+        if (s.indexOf("plasma") >= 0 || s.indexOf("kde") >= 0) return "kde"
+        if (s.indexOf("xfce") >= 0 || s.indexOf("x11") >= 0) return "x11"
+        return "other:" + s
     }
 
-    function sessionHint(raw) {
-        var s = ("" + raw).toLowerCase()
-        if (s === "parametral") return "Wayland · birincil"
-        if (s.indexOf("plasma") === 0) return "tanıdık masaüstü"
-        if (s.indexOf("parametral-x11") === 0 || s.indexOf("xfce") === 0) return "X11 · VM yedeği"
-        return ""
+    function sessionInfo(raw) {
+        var g = sessionGroup(raw)
+        if (g === "hypr") return { label: "Wayland", name: "Hyprland", hint: "Noctalia · birincil" }
+        if (g === "kde")  return { label: "Wayland", name: "KDE Plasma", hint: "panel + başlat menüsü" }
+        if (g === "x11")  return { label: "X11", name: "Parametral X11", hint: "VM'de garanti açılır" }
+        return { label: "", name: "" + raw, hint: "" }
+    }
+
+    function noteSession(idx, raw) {
+        if (idx < 0) return
+        if (sessionNames[idx] === raw) return
+        sessionNames[idx] = raw
+        rebuildTimer.restart()
+    }
+
+    function buildSessionCards() {
+        var order = { "hypr": 0, "kde": 1, "x11": 2 }
+        var seen = {}
+        var out = []
+        for (var i = 0; i < sessionNames.length; ++i) {
+            var raw = sessionNames[i]
+            if (!raw) continue
+            var g = sessionGroup(raw)
+            if (seen[g]) continue
+            seen[g] = true
+            var info = sessionInfo(raw)
+            out.push({ label: info.label, name: info.name, hint: info.hint,
+                       group: g, real: i })
+        }
+        // sıra sabit: Hyprland, KDE, X11 — kartların yeri her açılışta aynı olsun
+        out.sort(function (a, b) {
+            var oa = order[a.group] === undefined ? 9 : order[a.group]
+            var ob = order[b.group] === undefined ? 9 : order[b.group]
+            return oa - ob
+        })
+        sessionCards = out
+        if (out.length > 0 && chosenSession < 0) chosenSession = out[0].real
     }
 
     function doLogin() {

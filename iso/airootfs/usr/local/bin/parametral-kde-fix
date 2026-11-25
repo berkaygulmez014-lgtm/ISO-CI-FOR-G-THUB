@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# parametral-kde-fix — KDE oturumunda panel + başlat menüsü garantisi.
+#
+# İki kırılma onarılır:
+#  1) plasmashell hipervizörde (3D hızlandırma yok) çöküyor -> hiç panel yok.
+#     Çözüm: yazılım GL ile bir kez yeniden başlat.
+#  2) Özel look-and-feel ile açılan yeni profilde Plasma paneli hiç kurmuyor ->
+#     masaüstü çıplak, başlat menüsü yok. Çözüm: Plasma betik API'siyle paneli kur.
+#
+# Sessiz çalışır, kararını /tmp/parametral-kde-fix.log dosyasına yazar.
+set -u
+
+case "${XDG_CURRENT_DESKTOP:-}" in
+  *KDE*) ;;
+  *) exit 0 ;;
+esac
+
+log=/tmp/parametral-kde-fix.log
+say() { echo "[$(date -u +%FT%TZ)] $*" >> "$log" 2>/dev/null || true; }
+
+# ---- 1. plasmashell ayakta mı? -------------------------------------------------
+alive=""
+for _ in $(seq 1 20); do
+  if pgrep -x plasmashell >/dev/null 2>&1; then alive=1; break; fi
+  sleep 1
+done
+
+if [ -z "$alive" ]; then
+  say "plasmashell yok — yazilim GL ile yeniden baslatiliyor"
+  LIBGL_ALWAYS_SOFTWARE=1 setsid plasmashell --replace >/dev/null 2>&1 &
+  for _ in $(seq 1 20); do
+    pgrep -x plasmashell >/dev/null 2>&1 && break
+    sleep 1
+  done
+fi
+
+if ! pgrep -x plasmashell >/dev/null 2>&1; then
+  say "plasmashell acilmadi — panel kurulamaz (GL/DRM sorunu)"
+  exit 0
+fi
+
+# ---- 2. panel var mı? -----------------------------------------------------------
+applets="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+if [ -f "$applets" ] && grep -q '^plugin=org\.kde\.plasma\.panel' "$applets"; then
+  say "panel zaten var"
+  exit 0
+fi
+
+layout=/usr/share/parametral/kde-layout.js
+[ -f "$layout" ] || { say "kde-layout.js yok"; exit 0; }
+
+for _ in $(seq 1 15); do
+  if command -v qdbus6 >/dev/null 2>&1; then
+    if qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \
+         "$(cat "$layout")" >>"$log" 2>&1; then
+      say "panel kuruldu (kickoff + gorev cubugu + sistem tepsisi + saat)"
+      exit 0
+    fi
+  fi
+  sleep 2
+done
+
+say "panel kurulamadi — Plasma betik API'si yanit vermedi"
+exit 0

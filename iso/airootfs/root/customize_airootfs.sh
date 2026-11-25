@@ -43,6 +43,15 @@ grep -q '^QtVersion=6' /usr/share/sddm/themes/parametral/metadata.desktop || { e
 grep -q '^MainScript=Main.qml' /usr/share/sddm/themes/parametral/metadata.desktop || { echo "HATA: metadata MainScript yok" >&2; exit 1; }
 # Oturum secici (Hyprland / KDE Plasma / Parametral X11 kartlari) temanin icinde olmali.
 grep -q 'chosenSession' /usr/share/sddm/themes/parametral/Main.qml || { echo "HATA: tema oturum secici yok" >&2; exit 1; }
+# Tekrarlanan oturum girdileri tek karta indirilmeli (v0.1.21): 7 kart -> 3 kart.
+grep -q 'sessionCards' /usr/share/sddm/themes/parametral/Main.qml || { echo "HATA: tema oturum tekilleştirmesi yok" >&2; exit 1; }
+
+# KDE panel/başlat menüsü onarımı: plasmashell çökerse/panel hiç kurulmazsa
+# oturum açılışında paneli kurar (bkz. /usr/local/bin/parametral-kde-fix).
+[ -f /usr/share/parametral/kde-layout.js ] || { echo "HATA: kde-layout.js yok" >&2; exit 1; }
+grep -q 'org.kde.plasma.kickoff' /usr/share/parametral/kde-layout.js || { echo "HATA: KDE panelinde başlat menüsü yok" >&2; exit 1; }
+chmod 0755 /usr/local/bin/parametral-kde-fix
+chmod 0644 /usr/share/parametral/kde-layout.js /etc/xdg/autostart/parametral-kde-fix.desktop
 install -d /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/10-parametral.conf <<'EOF'
 [Theme]

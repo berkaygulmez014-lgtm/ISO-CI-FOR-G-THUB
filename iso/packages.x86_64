@@ -53,6 +53,8 @@ bluedevil
 xdg-desktop-portal-kde
 polkit-kde-agent
 qt6-wayland
+# KDE panel onarımı qdbus6 ile Plasma betik API'sini çağırıyor (v0.1.21)
+qt6-tools
 
 # Hyprland edisyonu (arkadasin asil Parametral oturumu) — Noctalia shell ile
 hyprland

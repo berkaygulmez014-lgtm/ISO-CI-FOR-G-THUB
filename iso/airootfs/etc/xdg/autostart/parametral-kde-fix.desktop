@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Parametral KDE panel onarimi
+Comment=Panel/başlat menüsü yoksa plasmashell'i yeniden başlatır ve paneli kurar
+Exec=/usr/local/bin/parametral-kde-fix
+Terminal=false
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
