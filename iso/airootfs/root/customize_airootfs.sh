@@ -52,6 +52,19 @@ grep -q 'sessionCards' /usr/share/sddm/themes/parametral/Main.qml || { echo "HAT
 grep -q 'org.kde.plasma.kickoff' /usr/share/parametral/kde-layout.js || { echo "HATA: KDE panelinde başlat menüsü yok" >&2; exit 1; }
 chmod 0755 /usr/local/bin/parametral-kde-fix
 chmod 0644 /usr/share/parametral/kde-layout.js /etc/xdg/autostart/parametral-kde-fix.desktop
+
+# Panel teması: v0.1.22'ye kadar SVG repoda vardı ama hiç kurulmuyordu — panel
+# Breeze yarı saydam kalıyordu. Kendi opak Parametral panelimizi kuruyoruz.
+install -d /usr/share/plasma/desktoptheme/Parametral/widgets
+cp -r "$SRC/branding/plasma-theme/Parametral/." /usr/share/plasma/desktoptheme/Parametral/
+grep -q 'fill-opacity="1"' /usr/share/plasma/desktoptheme/Parametral/widgets/panel-background.svg || { echo "HATA: panel opak degil" >&2; exit 1; }
+cat > /etc/xdg/plasmarc <<'EOF'
+[Theme]
+name=Parametral
+EOF
+# Masaüstü taslağı (AI işlevi YOK — sadece görsel imza, sonraki sürümlerde tamolanacak)
+[ -f /etc/skel/Desktop/parametral-ai-os.desktop ] || { echo "HATA: masaustu taslagi yok" >&2; exit 1; }
+chmod 0755 /etc/skel/Desktop/*.desktop
 install -d /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/10-parametral.conf <<'EOF'
 [Theme]
@@ -208,6 +221,8 @@ EOF
 install -d /usr/share/xsessions
 
 # ---------------------------------------------------------------- 6. ev dizini sahipliği
+mkdir -p /home/parametral/Desktop
+cp -f /etc/skel/Desktop/. /home/parametral/Desktop/ 2>/dev/null || true
 chown -R parametral:parametral /home/parametral 2>/dev/null || true
 
 # pacman.conf'u geri koy (canlı sistemde imza kontrolü ve disk kontrolü normal çalışsın)

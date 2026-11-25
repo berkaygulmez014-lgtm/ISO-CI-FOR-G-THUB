@@ -6,7 +6,8 @@
 //
 // What this build actually honours, measured on Plasma 6.5 (Arch, 2026-11):
 //   panel.height            yes (≈64 px)
-//   panel.hiding            yes ("autohide": hidden until the pointer hits the edge)
+//   panel.hiding            yes (autohide gizler — KULLANMIYORUZ: panel her zaman görünür)
+//   v0.1.22: "autohide" kullanıcıda "başlat menüsü yok" izlenimi verdi, "normal" yapıldı.
 //   panel.floating          accepted by the API and written to the config, but NOT rendered —
 //                           the panel stays edge-to-edge. Do not rely on it for an island look.
 //   panel.minimum/maxLength accepted, also not rendered while the panel fills the screen
@@ -18,7 +19,7 @@ var panel = new Panel
 var panelScreen = panel.screen
 
 panel.location = "bottom"
-panel.hiding = "autohide"
+panel.hiding = "normal"
 
 // 3 gridUnits ≈ 56 px at 96 dpi: tall enough for 32 px icons, still a bar and not a slab.
 panel.height = 2 * Math.ceil(gridUnit * 3 / 2)

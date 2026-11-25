@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Parametral AI OS · TASLAK
+Comment=AI katmani sonraki surumlerde — simdilik sadece gorsel imza
+Exec=kate /home/parametral/Desktop/AI-TASLAK.txt
+Icon=parametral-start
+Terminal=false
+Categories=System;
+StartupNotify=true

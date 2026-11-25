@@ -1,0 +1,18 @@
+PARAMETRAL AI OS — TASLAK
+=========================
+
+Bu masaüstü su an bir taslaktir. AI katmani (model, ajan, araclar)
+sonraki surumlerde eklenecek; simdilik hicbir AI ozelligi calismiyor.
+
+Simdi var olan:
+  - Parametral gorsel kimlik (renk paleti, yaziti, duvar kagidi)
+  - Hyprland + Noctalia birincil oturum
+  - KDE Plasma: sabit, opak panel ve başlat menusu
+  - Parametral X11 (XFCE): VM yedek oturumu
+
+Planlanan (AI imzisi tam olacak):
+  - Parametral Core (1.7 / 4 / 8B) + Reflex 100M
+  - EVENTS / POLICY / TOOLS katmani
+  - Kullanicinin onayiyla calisan yerel ajan
+
+Not: Bu dosya sadece bilgilendirme icindir, bir AI islemi baslatmaz.

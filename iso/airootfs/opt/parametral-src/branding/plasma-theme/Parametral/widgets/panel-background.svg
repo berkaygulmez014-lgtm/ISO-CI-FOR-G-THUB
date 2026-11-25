@@ -10,9 +10,9 @@
     <clipPath id="clip-bottomleft"><rect x="0" y="46" width="18" height="18"/></clipPath>
     <clipPath id="clip-bottom"><rect x="18" y="46" width="28" height="18"/></clipPath>
     <clipPath id="clip-bottomright"><rect x="46" y="46" width="18" height="18"/></clipPath>
-    <!-- the dock itself: graphite, slightly translucent so the wallpaper reads through -->
-    <path id="bar" d="M18,4 L46,4 A14,14 0 0 1 60,18 L60,46 A14,14 0 0 1 46,60 L18,60 A14,14 0 0 1 4,46 L4,18 A14,14 0 0 1 18,4 Z" fill="#12171E" fill-opacity="0.88"/>
-    <path id="rim" d="M18,4 L46,4 A14,14 0 0 1 60,18 L60,46 A14,14 0 0 1 46,60 L18,60 A14,14 0 0 1 4,46 L4,18 A14,14 0 0 1 18,4 Z" fill="none" stroke="#E0A93B" stroke-opacity="0.22" stroke-width="1.6"/>
+    <!-- the dock itself: graphite, fully opaque (v0.1.22 — panel must never look hidden) -->
+    <path id="bar" d="M18,4 L46,4 A14,14 0 0 1 60,18 L60,46 A14,14 0 0 1 46,60 L18,60 A14,14 0 0 1 4,46 L4,18 A14,14 0 0 1 18,4 Z" fill="#12171E" fill-opacity="1"/>
+    <path id="rim" d="M18,4 L46,4 A14,14 0 0 1 60,18 L60,46 A14,14 0 0 1 46,60 L18,60 A14,14 0 0 1 4,46 L4,18 A14,14 0 0 1 18,4 Z" fill="none" stroke="#E0A93B" stroke-opacity="0.45" stroke-width="1.6"/>
   </defs>
   <rect id="hint-left-margin"   x="0"  y="18" width="18"           height="28" fill="none"/>
   <rect id="hint-right-margin"  x="46" y="18" width="18"      height="28" fill="none"/>

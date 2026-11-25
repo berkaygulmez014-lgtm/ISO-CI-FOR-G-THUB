@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Dosyalar
+Comment=Dosya yoneticisi
+Exec=dolphin
+Icon=system-file-manager
+Terminal=false
+Categories=System;

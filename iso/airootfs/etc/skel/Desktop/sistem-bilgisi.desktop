@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Sistem Bilgisi
+Comment=Parametral OS — hizli sistem ozeti
+Exec=konsole -e fastfetch
+Icon=computer
+Terminal=false
+Categories=System;
