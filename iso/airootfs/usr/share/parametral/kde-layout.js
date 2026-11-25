@@ -12,7 +12,10 @@ panel.location = "bottom"
 panel.height = 48
 panel.hiding = "normal"
 
-panel.addWidget("org.kde.plasma.kickoff")
+var launcher = panel.addWidget("org.kde.plasma.kickoff")
+// Başlat menüsü düğmesi bizim logomuz olsun (v0.1.23).
+launcher.currentConfigGroup = ["Configuration", "General"]
+launcher.writeConfig("icon", "parametral-start")
 panel.addWidget("org.kde.plasma.icontasks")
 panel.addWidget("org.kde.plasma.marginsseparator")
 panel.addWidget("org.kde.plasma.systemtray")

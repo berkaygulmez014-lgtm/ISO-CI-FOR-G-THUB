@@ -164,11 +164,12 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.leftMargin: 64 * root.u
         anchors.bottomMargin: 42 * root.u
-        text: "Parametral OS"
+        text: "PARAMETRAL OS  ·  LIVE  ·  v0.1.23"
         color: root.cMuted
-        font.family: "DejaVu Sans"
+        font.family: "IBM Plex Mono"
         font.weight: Font.Light
-        font.pixelSize: 16 * root.u
+        font.pixelSize: 13 * root.u
+        font.letterSpacing: 1.2 * root.u
     }
 
     // ── oturum listesini toplayan görünmez tekne ─────────────────────────────
@@ -224,14 +225,34 @@ Rectangle {
             }
         }
 
-        Text {
-            text: "Parametral"
+        Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            color: root.cInk
-            font.family: "DejaVu Sans"
-            font.weight: Font.ExtraLight
-            font.pixelSize: 52 * root.u
-            font.letterSpacing: 1.2
+            spacing: 6 * root.u
+
+            Text {
+                text: "Parametral"
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: root.cInk
+                font.family: "DejaVu Sans"
+                font.weight: Font.Light
+                font.pixelSize: 54 * root.u
+                font.letterSpacing: 2.5
+            }
+            Text {
+                text: "AI İŞLETİM SİSTEMİ  ·  LIVE TASLAK"
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: root.cMuted
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 10 * root.u
+                font.letterSpacing: 2.2 * root.u
+            }
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 72 * root.u
+                height: 2 * root.u
+                color: "#e0a93b"
+                radius: 1 * root.u
+            }
         }
 
         // ── masaüstü seçimi: Hyprland / KDE Plasma / Parametral X11 ──────────
@@ -307,6 +328,18 @@ Rectangle {
                             }
                         }
 
+                        // seçili kartta kısa amber alt çizgi (tek canlı vurgu)
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 7 * root.u
+                            width: 26 * root.u
+                            height: 2 * root.u
+                            radius: 1 * root.u
+                            color: root.cOnAccent
+                            visible: sessionCard.active
+                        }
+
                         MouseArea {
                             id: sessionPointer
                             anchors.fill: parent
@@ -343,12 +376,13 @@ Rectangle {
                 spacing: 11 * root.u
 
                 Text {
-                    text: "Hoş geldiniz"
+                    text: "PARAMETRAL · GİRİŞ"
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: root.cSoft
-                    font.family: "DejaVu Sans"
+                    font.family: "IBM Plex Mono"
                     font.weight: Font.Light
-                    font.pixelSize: 24 * root.u
+                    font.pixelSize: 18 * root.u
+                    font.letterSpacing: 2 * root.u
                 }
 
                 // user chips — only when the greeter actually reports users

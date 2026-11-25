@@ -50,6 +50,8 @@ grep -q 'sessionCards' /usr/share/sddm/themes/parametral/Main.qml || { echo "HAT
 # oturum açılışında paneli kurar (bkz. /usr/local/bin/parametral-kde-fix).
 [ -f /usr/share/parametral/kde-layout.js ] || { echo "HATA: kde-layout.js yok" >&2; exit 1; }
 grep -q 'org.kde.plasma.kickoff' /usr/share/parametral/kde-layout.js || { echo "HATA: KDE panelinde başlat menüsü yok" >&2; exit 1; }
+grep -q 'writeConfig("icon", "parametral-start")' /usr/share/parametral/kde-layout.js || { echo "HATA: başlat menüsü logo ayari yok" >&2; exit 1; }
+grep -q '24-tick dial' "$SRC/branding/icons/parametral-start.svg" || { echo "HATA: parametral-start logosu degismedi" >&2; exit 1; }
 chmod 0755 /usr/local/bin/parametral-kde-fix
 chmod 0644 /usr/share/parametral/kde-layout.js /etc/xdg/autostart/parametral-kde-fix.desktop
 
