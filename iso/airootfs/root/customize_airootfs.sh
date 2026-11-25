@@ -41,6 +41,8 @@ cp -r "$SRC/branding/sddm/parametral/." /usr/share/sddm/themes/parametral/
 [ -f /usr/share/sddm/themes/parametral/metadata.desktop ] || { echo "HATA: sddm metadata.desktop yok" >&2; exit 1; }
 grep -q '^QtVersion=6' /usr/share/sddm/themes/parametral/metadata.desktop || { echo "HATA: metadata QtVersion=6 degil" >&2; exit 1; }
 grep -q '^MainScript=Main.qml' /usr/share/sddm/themes/parametral/metadata.desktop || { echo "HATA: metadata MainScript yok" >&2; exit 1; }
+# Oturum secici (Hyprland / KDE Plasma / Parametral X11 kartlari) temanin icinde olmali.
+grep -q 'chosenSession' /usr/share/sddm/themes/parametral/Main.qml || { echo "HATA: tema oturum secici yok" >&2; exit 1; }
 install -d /etc/sddm.conf.d
 cat > /etc/sddm.conf.d/10-parametral.conf <<'EOF'
 [Theme]
@@ -117,10 +119,15 @@ Session=$sess
 CONF
 # SDDM once state.conf [Last] Session'i kullanir; orada parametral (Hyprland) yaziyor.
 # VM'de o oturum acilmadigi icin greeter giris sonrasi geri donuyordu — burayi da duzelt.
-if [ -f /var/lib/sddm/state.conf ]; then
-  sed -i "s/^Session=.*/Session=$sess/" /var/lib/sddm/state.conf
+# Yalniz ILK acilista: kullanici greeter'daki masaustu kartlarindan Hyprland'i secip
+# giris yaparsa SDDM secimi state.conf'a yazar; her acilista X11'e geri cevirmiyoruz.
+if [ ! -f /var/lib/sddm/.vm-default-seeded ]; then
+  if [ -f /var/lib/sddm/state.conf ]; then
+    sed -i "s/^Session=.*/Session=$sess/" /var/lib/sddm/state.conf
+  fi
+  : > /var/lib/sddm/.vm-default-seeded
 fi
-echo "parametral: VM algilandi, varsayilan oturum $sess"
+echo "parametral: VM algilandi, varsayilan oturum $sess (secim greeter'da degistirilebilir)"
 EOF
 chmod 0755 /usr/local/bin/parametral-vm-session
 cat > /etc/systemd/system/parametral-vm-session.service <<'EOF'

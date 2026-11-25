@@ -19,6 +19,7 @@ Rectangle {
     property bool busy: false
     property string errorText: ""
     property int selectedUser: -1
+    property int chosenSession: -1
 
     property bool dark: true
 
@@ -218,6 +219,81 @@ Rectangle {
             font.weight: Font.ExtraLight
             font.pixelSize: 52 * root.u
             font.letterSpacing: 1.2
+        }
+
+        // ── masaüstü seçimi: Hyprland / KDE Plasma / Parametral X11 ──────────
+        // Greeter açılır açılmaz neye gireceğini gösterir; seçim SDDM tarafından
+        // state.conf'a yazılır, sonraki açılışta hatırlanır.
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 8 * root.u
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "MASAÜSTÜ"
+                color: root.cMuted
+                font.family: "DejaVu Sans"
+                font.weight: Font.Light
+                font.pixelSize: 12 * root.u
+                font.letterSpacing: 1.6
+            }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 10 * root.u
+
+                Repeater {
+                    id: sessionRepeater
+                    model: sessionModel
+
+                    delegate: Rectangle {
+                        id: sessionCard
+                        property bool active: root.chosenSession === index
+                        width: (520 * root.u - (sessionRepeater.count - 1) * 10 * root.u)
+                               / Math.max(1, sessionRepeater.count)
+                        height: 74 * root.u
+                        radius: 14 * root.u
+                        color: active ? "#e0a93b"
+                             : (sessionPointer.containsMouse ? root.cHover : root.cCard)
+                        border.color: active ? "#d09a2c" : root.cCardBorder
+                        border.width: active ? 2 : 1
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 3 * root.u
+                            width: parent.width - 14 * root.u
+
+                            Text {
+                                width: parent.width
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                text: root.friendlySession(model.name)
+                                color: sessionCard.active ? root.cOnAccent : root.cInk
+                                font.family: "DejaVu Sans"
+                                font.pixelSize: 15 * root.u
+                            }
+                            Text {
+                                width: parent.width
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                text: root.sessionHint(model.name)
+                                color: sessionCard.active ? root.cOnAccent : root.cMuted
+                                font.family: "DejaVu Sans"
+                                font.weight: Font.Light
+                                font.pixelSize: 11 * root.u
+                            }
+                        }
+
+                        MouseArea {
+                            id: sessionPointer
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.chosenSession = index
+                        }
+                    }
+                }
+            }
         }
 
         Rectangle {
@@ -436,6 +512,25 @@ Rectangle {
         }
     }
 
+    // Oturum adlarını tanınır hâle getir: SDDM'in ham adları ("parametral",
+    // "plasma", "parametral-x11") kullanıcıya bir şey söylemiyor.
+    function friendlySession(raw) {
+        var s = ("" + raw).toLowerCase()
+        if (s === "parametral") return "Hyprland"
+        if (s.indexOf("plasma") === 0) return "KDE Plasma"
+        if (s.indexOf("parametral-x11") === 0) return "Parametral X11"
+        if (s === "xfce" || s.indexOf("xfce") === 0) return "Parametral X11"
+        return "" + raw
+    }
+
+    function sessionHint(raw) {
+        var s = ("" + raw).toLowerCase()
+        if (s === "parametral") return "Wayland · birincil"
+        if (s.indexOf("plasma") === 0) return "tanıdık masaüstü"
+        if (s.indexOf("parametral-x11") === 0 || s.indexOf("xfce") === 0) return "X11 · VM yedeği"
+        return ""
+    }
+
     function doLogin() {
         if (userEntry.text.length === 0) {
             errorText = "Kullanıcı adı boş"
@@ -445,7 +540,8 @@ Rectangle {
         }
         errorText = ""
         busy = true
-        sddm.login(userEntry.text, passwordEntry.text, Math.max(0, sessionModel.lastIndex))
+        var idx = chosenSession >= 0 ? chosenSession : Math.max(0, sessionModel.lastIndex)
+        sddm.login(userEntry.text, passwordEntry.text, idx)
     }
 
     Connections {
@@ -464,6 +560,8 @@ Rectangle {
     }
 
     Component.onCompleted: {
+        // SDDM'in son kullanicisi/oturumu state.conf'tan gelir; secim yoksa onu kullan.
+        if (chosenSession < 0) chosenSession = Math.max(0, sessionModel.lastIndex)
         if (userEntry.text.length > 0) passwordEntry.forceActiveFocus()
         else userEntry.forceActiveFocus()
     }
