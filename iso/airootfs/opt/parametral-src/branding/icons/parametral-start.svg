@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" role="img" aria-label="Parametral">
-  <!-- Parametral mark — the real 24-tick dial from assets/, widened so it still
-       reads at 22 px in the KDE launcher button (v0.1.23). -->
-  <g fill="#9AA3AF">
+  <!-- Parametral mark v0.1.24 — the real 24-tick dial from assets/, recoloured
+       for the orange+blue theme: white tick ring + orb, blue live segment,
+       one amber signal tick, dark disc. -->
+  <circle cx="50" cy="50" r="49" fill="#0B0F14" fill-opacity="0.94" stroke="#E0A93B" stroke-opacity="0.55" stroke-width="2"/>
+  <g fill="#F2EDE4">
     <rect x="48.300" y="13.500" width="4.6" height="10.500" transform="rotate(0.000 50.000 13.500)"/>
     <rect x="59.579" y="15.286" width="4.6" height="10.500" transform="rotate(18.000 61.279 15.286)"/>
     <rect x="70.082" y="20.471" width="4.6" height="10.500" transform="rotate(36.000 72.782 20.471)"/>
@@ -23,6 +25,8 @@
     <rect x="26.846" y="20.471" width="4.6" height="10.500" transform="rotate(324.000 28.546 20.471)"/>
     <rect x="37.021" y="15.286" width="4.6" height="10.500" transform="rotate(342.000 38.721 15.286)"/>
   </g>
-  <path d="M 78.508 10.763 A 48.5 48.5 0 0 1 98.500 50.000 L 85.500 50.000 A 35.5 35.5 0 0 0 70.866 21.280 Z" fill="#0B63CE"/>
-  <circle cx="70.493" cy="39.558" r="5.6" fill="#4B5563"/>
+  <!-- single amber signal tick -->
+  <rect x="48.300" y="86.500" width="4.6" height="10.500" transform="rotate(180.000 50.000 86.500)" fill="#E0A93B"/>
+  <path d="M 78.508 10.763 A 48.5 48.5 0 0 1 98.500 50.000 L 85.500 50.000 A 35.5 35.5 0 0 0 70.866 21.280 Z" fill="#2FA8E8"/>
+  <circle cx="70.493" cy="39.558" r="5.6" fill="#F2EDE4"/>
 </svg>

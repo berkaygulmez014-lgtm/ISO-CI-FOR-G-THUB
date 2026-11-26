@@ -60,7 +60,11 @@ install -Dm644 "$SRC/branding/icons/parametral-start.svg" \
 while IFS= read -r f; do
   [ -f "$f.orig" ] || cp "$f" "$f.orig"
   cp "$SRC/branding/icons/parametral-start.svg" "$f"
-done < <(find /usr/share/icons/breeze -name 'start-here-kde*.svg' 2>/dev/null)
+done < <(find /usr/share/icons/breeze /usr/share/icons/breeze-dark -name 'start-here*.svg' 2>/dev/null)
+# Kickoff'un baslik simgesi start-here.svg (start-here-kde degil) oldugu icin
+# v0.1.23'te yesil "P" gorunuyordu: artik butun start-here* varyantlari bizim logomuz.
+gtk-update-icon-cache -f /usr/share/icons/breeze >/dev/null 2>&1 || true
+gtk-update-icon-cache -f /usr/share/icons/breeze-dark >/dev/null 2>&1 || true
 
 
 echo "==> Konsole (markalı profil + renk şeması)"

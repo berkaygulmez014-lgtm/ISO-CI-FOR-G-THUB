@@ -64,6 +64,17 @@ cat > /etc/xdg/plasmarc <<'EOF'
 [Theme]
 name=Parametral
 EOF
+# Plasma 6 QML (Kickoff) secim rengini AccentColor'dan okuyor; v0.1.23'te yalniz
+# ColorScheme vardi ve menu Breeze mavisi kaldi. Turuncu accent + koyu yuzey.
+cat > /etc/xdg/kdeglobals <<'EOF'
+[General]
+ColorScheme=Parametral
+AccentColor=224,169,59
+AccentColorInactive=90,96,104
+EOF
+grep -q 'AccentColor=224,169,59' /etc/xdg/kdeglobals || { echo "HATA: turuncu accent yok" >&2; exit 1; }
+[ -f /usr/share/plasma/desktoptheme/Parametral/widgets/background.svg ] || { echo "HATA: launcher background temasi yok" >&2; exit 1; }
+grep -q 'start-here\*.svg' "$SRC/install/75-desktop.sh" || { echo "HATA: Kickoff baslik logosu degismedi" >&2; exit 1; }
 # Masaüstü taslağı (AI işlevi YOK — sadece görsel imza, sonraki sürümlerde tamolanacak)
 [ -f /etc/skel/Desktop/parametral-ai-os.desktop ] || { echo "HATA: masaustu taslagi yok" >&2; exit 1; }
 chmod 0755 /etc/skel/Desktop/*.desktop
